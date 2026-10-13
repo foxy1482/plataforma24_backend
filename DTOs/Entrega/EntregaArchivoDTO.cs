@@ -1,13 +1,10 @@
-﻿using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-
-namespace Plataforma24API.Models
+﻿namespace Plataforma24API.Models
 {
     public class EntregaArchivoDTO
     {
-        public int NumEntrega { get; set; }
+        public int IdEntrega { get; set; }
 
-        public int NumArchivo { get; set; }
+        public int IdArchivo { get; set; }
 
         // Campos del join
         public string? NombreOriginal { get; set; }
@@ -16,7 +13,7 @@ namespace Plataforma24API.Models
 
     public class VincEntregaArchivoDTO
     {
-        public int NumEntrega { get; set; }
-        public int NumArchivo { get; set; }
+        public int IdEntrega { get; set; }
+        public int IdArchivo { get; set; }
     }
 }

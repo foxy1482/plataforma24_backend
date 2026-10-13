@@ -2,15 +2,14 @@
 {
     public class CrearTareaDTO
     {
+        public string Titulo { get; set; } = null!;
 
-        public string Titulo { get; set; }
-
-        public string Descripcion { get; set; }
+        public string Descripcion { get; set; } = null!;
 
         public DateTime FechaEntrega { get; set; }
 
         public DateTime PublicadaDesde { get; set; }
 
-        public int NumMateria { get; set; }
+        public int IdMateria { get; set; }
     }
 }

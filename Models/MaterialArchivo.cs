@@ -7,10 +7,13 @@ namespace Plataforma24API.Models
     public class MaterialArchivo
     {
         [Key]
-        [Column("num_material")]
-        public int NumMaterial { get; set; }
+        [Column("id")]
+        public int Id { get; set; }
 
-        [Column("num_archivo")]
-        public int NumArchivo { get; set; }
+        [Column("id_material")]
+        public int IdMaterial { get; set; }
+
+        [Column("id_archivo")]
+        public int IdArchivo { get; set; }
     }
 }

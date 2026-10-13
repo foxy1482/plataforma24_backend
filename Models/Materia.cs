@@ -7,16 +7,16 @@ namespace Plataforma24API.Models
     public class Materia
     {
         [Key]
-        [Column("numero")]
-        public int Numero { get; set; }
+        [Column("id")]
+        public int Id { get; set; }
 
         [Column("nombre")]
-        public string Nombre { get; set; }
+        public string Nombre { get; set; } = null!;
 
-        [Column("num_profesor")]
-        public int NumProfesor {  get; set; }
+        [Column("id_profesor")]
+        public int? IdProfesor { get; set; }
 
-        [Column("num_curso")]
-        public int NumCurso { get; set; }
+        [Column("id_curso")]
+        public int IdCurso { get; set; }
     }
 }

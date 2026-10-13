@@ -1,7 +1,8 @@
-﻿using System.IdentityModel.Tokens.Jwt;
+﻿using Microsoft.IdentityModel.Tokens;
+using Plataforma24API.Models;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using Microsoft.IdentityModel.Tokens;
 
 namespace Plataforma24API.Auth
 {
@@ -14,7 +15,7 @@ namespace Plataforma24API.Auth
             _config = config;
         }
 
-        public string GenerarToken(int legajoUs, int numRol)
+        public string GenerarToken(int idUsuario, int idRol)
         {
             var key = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(_config["Jwt:Key"])
@@ -24,8 +25,8 @@ namespace Plataforma24API.Auth
 
             var claims = new[]
             {
-                new Claim("legajoUs", legajoUs.ToString()),
-                new Claim("numRol", numRol.ToString())
+                new Claim("idUsuario", idUsuario.ToString()),
+                new Claim("idRol", idRol.ToString())
             };
 
             var token = new JwtSecurityToken(

@@ -8,24 +8,23 @@ namespace Plataforma24API.Models
     public class Archivo
     {
         [Key]
-        [Column("numero")]
-        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-        public int Numero { get; set; }
+        [Column("id")]
+        public int Id { get; set; }
 
         [Column("nombre_original")]
-        public string NombreOriginal { get; set; }
+        public string NombreOriginal { get; set; } = null!;
 
         [Column("guid_archivo")]
         public Guid GuidArchivo { get; set; }
 
         [Column("ruta")]
-        public string Ruta { get; set; }
+        public string Ruta { get; set; } = null!;
 
         [Column("tipo")]
-        public string Tipo { get; set; }
+        public string Tipo { get; set; } = null!;
 
-        [Column("num_legajo")]
-        public int NumLegajo { get; set; }
+        [Column("id_usuario")]
+        public int IdUsuario { get; set; }
 
         [Column("fecha_subida")]
         public DateTime FechaSubida { get; set; }

@@ -7,22 +7,22 @@ namespace Plataforma24API.Models
     public class Tarea
     {
         [Key]
-        [Column("numero")]
-        public int Numero {  get; set; }
+        [Column("id")]
+        public int Id { get; set; }
 
         [Column("titulo")]
-        public string Titulo { get; set; }
+        public string Titulo { get; set; } = null!;
 
         [Column("descripcion")]
-        public string Descripcion { get; set; }
+        public string Descripcion { get; set; } = null!;
 
         [Column("fecha_entrega")]
-        public DateTime FechaEntrega { get; set;  }
+        public DateTime FechaEntrega { get; set; }
 
         [Column("publicada_desde")]
         public DateTime PublicadaDesde { get; set; }
 
-        [Column("num_materia")]
-        public int NumMateria { get; set; }
+        [Column("id_materia")]
+        public int IdMateria { get; set; }
     }
 }

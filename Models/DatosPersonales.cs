@@ -7,29 +7,30 @@ namespace Plataforma24API.Models
     public class DatosPersonales
     {
         [Key]
-        [Column("num_legajo")]
-        public int NumeroLegajo { get; set; }
-
+        [Column("id")]
+        public int Id { get; set; }
+        [Column("id_usuario")]
+        public int IdUsuario {  get; set; }
         [Column("nombre")]
-        public string Nombre { get; set; }
+        public string Nombre { get; set; } = null!;
 
         [Column("apellido")]
-        public string Apellido { get; set; }
+        public string Apellido { get; set; } = null!;
 
         [Column("dni")]
-        public int DNI { get; set; }
+        public long DNI { get; set; }
 
         [Column("telefono_celular")]
-        public int? TelefonoCelular { get; set; }
+        public long? TelefonoCelular { get; set; }
 
         [Column("direccion")]
-        public string Direccion { get; set; }
+        public string Direccion { get; set; } = null!;
 
         [Column("fecha_nacimiento", TypeName = "date")]
         public DateOnly FechaNacimiento { get; set; }
 
-        [Column("num_foto_archivo")]
-        public int? NumFotoArchivo { get; set; }
+        [Column("id_foto_archivo")]
+        public int? IdFotoArchivo { get; set; }
 
         [Column("sexo")]
         public Sexo? Sexo { get; set; }

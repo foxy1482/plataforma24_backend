@@ -1,6 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations.Schema;
-
-namespace Plataforma24API.DTOs.Archivos
+﻿namespace Plataforma24API.DTOs.Archivos
 {
     public class ModificarArchivoDTO
     {
@@ -10,7 +8,7 @@ namespace Plataforma24API.DTOs.Archivos
 
         public string? Tipo { get; set; }
 
-        public int? NumLegajo { get; set; }
+        public int? IdUsuario { get; set; }
 
         public DateTime? FechaSubida { get; set; }
     }

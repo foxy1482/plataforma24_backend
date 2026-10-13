@@ -6,26 +6,22 @@ namespace Plataforma24API.DTOs.Usuarios
 {
     public class DatosPersonalesDTO
     {
-        [Key]
-        [Column("num_legajo")]
-        public int NumeroLegajo { get; set; }
-        
-        public string Nombre {  get; set; }
-        public string Apellido { get; set; }
-        
-        [Column("dni")]
-        public int DNI { get; set; }
+        public int IdUsuario { get; set; }
 
-        [Column("telefono_celular")]
-        public int? TelefonoCelular { get; set; }
+        public string Nombre { get; set; } = null!;
 
-        public string Direccion { get; set; }
+        public string Apellido { get; set; } = null!;
 
-        [Column("fecha_nacimiento", TypeName = "date")]
+        public long DNI { get; set; }
+
+        public long? TelefonoCelular { get; set; }
+
+        public string Direccion { get; set; } = null!;
+
         public DateOnly FechaNacimiento { get; set; }
 
-        [Column("num_foto_archivo")]
-        public int? NumFotoArchivo { get; set; }
+        public int? IdFotoArchivo { get; set; }
+
         public Sexo? Sexo { get; set; }
     }
 }

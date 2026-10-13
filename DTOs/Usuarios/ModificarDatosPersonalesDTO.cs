@@ -5,23 +5,21 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace Plataforma24API.DTOs.Usuarios
 {
     public class ModificarDatosPersonalesDTO
-    {        
-        public string? Nombre {  get; set; }
-        public string? Apellido { get; set; }
-        
-        [Column("dni")]
-        public int? DNI { get; set; }
+    {
+        public string? Nombre { get; set; }
 
-        [Column("telefono_celular")]
-        public int? TelefonoCelular { get; set; }
+        public string? Apellido { get; set; }
+
+        public long? DNI { get; set; }
+
+        public long? TelefonoCelular { get; set; }
 
         public string? Direccion { get; set; }
 
-        [Column("fecha_nacimiento", TypeName = "date")]
         public DateOnly? FechaNacimiento { get; set; }
 
-        [Column("num_foto_archivo")]
-        public int? NumFotoArchivo { get; set; }
+        public int? IdFotoArchivo { get; set; }
+
         public Sexo? Sexo { get; set; }
     }
 }

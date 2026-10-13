@@ -48,7 +48,7 @@ namespace Plataforma24API.Auth
         }
         public static int? GetRol(this ClaimsPrincipal user)
         {
-            var claim = user.FindFirst("numRol")?.Value;
+            var claim = user.FindFirst("idRol")?.Value;
             return int.TryParse(claim, out int rol) ? rol : null;
         }
 
@@ -58,27 +58,27 @@ namespace Plataforma24API.Auth
             return rol == 2;
         }
 
-        public static bool TienePermiso(this ClaimsPrincipal user, int legajoObjetivo)
+        public static bool TienePermiso(this ClaimsPrincipal user, int idUsuarioObjetivo)
         {
-            var legajoTokenClaim = user.FindFirst("legajoUs")?.Value;
+            var idUsuarioTokenClaim = user.FindFirst("idUsuario")?.Value;
 
-            if (legajoTokenClaim == null) return false;
+            if (idUsuarioTokenClaim == null) return false;
 
             // Si es admin, tiene permiso para todo
             if (user.EsAdmin()) return true;
 
-            if (int.TryParse(legajoTokenClaim, out int legajoToken))
+            if (int.TryParse(idUsuarioTokenClaim, out int idUsuarioToken))
             {
-                return legajoToken == legajoObjetivo;
+                return idUsuarioToken == idUsuarioObjetivo;
             }
 
             return false;
         }
 
-        public static int? GetLegajo(this ClaimsPrincipal user)
+        public static int? GetUserId(this ClaimsPrincipal user)
         {
-            var claim = user.FindFirst("legajoUs")?.Value;
-            return int.TryParse(claim, out int legajo) ? legajo : null;
+            var claim = user.FindFirst("idUsuario")?.Value;
+            return int.TryParse(claim, out int id) ? id : null;
         }
     }
 }

@@ -7,10 +7,13 @@ namespace Plataforma24API.Models
     public class EntregaArchivo
     {
         [Key]
-        [Column("num_entrega")]
-        public int NumEntrega { get; set; }
+        [Column("id")]
+        public int Id { get; set; }
 
-        [Column("num_archivo")]
-        public int NumArchivo { get; set; }
+        [Column("id_entrega")]
+        public int IdEntrega { get; set; }
+
+        [Column("id_archivo")]
+        public int IdArchivo { get; set; }
     }
 }

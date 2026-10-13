@@ -5,8 +5,8 @@ namespace Plataforma24API.Models
 {
     public enum Sexo
     {
-        Masculino,
-        Femenino
+        [PgName("Masculino")] Masculino,
+        [PgName("Femenino")] Femenino
     }
     public enum Turno
     {

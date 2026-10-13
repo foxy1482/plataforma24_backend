@@ -2,14 +2,16 @@
 {
     public class AuthProfileDTO
     {
-        public int NumeroLegajo { get; set; }
+        public int Id { get; set; }
 
-        public string Email { get; set;  }
+        public string NumeroLegajo { get; set; } = null!;   
 
-        public string Nombre { get; set; }
+        public string Email { get; set; } = null!;
 
-        public int NumRol { get; set; }
+        public string Nombre { get; set; } = null!;
 
-        public int? NumCurso { get; set; }
+        public int IdRol { get; set; }
+
+        public int? IdCurso { get; set; }
     }
 }

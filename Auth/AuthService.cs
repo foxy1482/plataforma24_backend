@@ -16,15 +16,16 @@ namespace Plataforma24API.Auth
             _context = context;
             _jwtService = jwtService;
         }
-        public AuthProfileDTO Profile(int numLegajo)
+        public AuthProfileDTO Profile(int idUsuario)
         {
-            var usuario = _context.Usuarios.Where(u => u.NumeroLegajo == numLegajo).Select(u => new AuthProfileDTO
+            var usuario = _context.Usuarios.Where(u => u.id == idUsuario).Select(u => new AuthProfileDTO
             {
-                NumeroLegajo = u.NumeroLegajo,
+                Id = u.id,
+                NumeroLegajo = u.NumeroLegajo,   // ahora string
                 Nombre = u.NombreUsuario,
                 Email = u.Email,
-                NumRol = u.NumRol,
-                NumCurso = u.NumCurso,
+                IdRol = u.IdRol,
+                IdCurso = u.IdCurso
             }).FirstOrDefault();
 
             if (usuario == null)
@@ -43,7 +44,7 @@ namespace Plataforma24API.Auth
 
             if (!valid) throw new Exception("Contraseña incorrecta");
 
-            return new AuthResponseDTO { Token=_jwtService.GenerarToken(usuario.NumeroLegajo, usuario.NumRol) };
+            return new AuthResponseDTO { Token=_jwtService.GenerarToken(usuario.id, usuario.IdRol) };
         }
 
         public AuthResponseDTO Registro(RegisterDTO dto)
@@ -55,13 +56,13 @@ namespace Plataforma24API.Auth
                 Email = dto.Email,
                 NombreUsuario = dto.Nombre,
                 PasswordHash = hash,
-                NumRol = 1
+                IdRol = 1
             };
 
             _context.Usuarios.Add(usuario);
             _context.SaveChanges();
 
-            return new AuthResponseDTO { Token = _jwtService.GenerarToken(usuario.NumeroLegajo, usuario.NumRol) };
+            return new AuthResponseDTO { Token = _jwtService.GenerarToken(usuario.id, usuario.IdRol) };
         }
     }
 }
