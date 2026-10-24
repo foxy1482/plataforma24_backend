@@ -21,8 +21,6 @@ namespace Plataforma24API.Controllers
             _context = context;
         }
 
-        // GET /materias/
-        // GET /materias?profesor={numero}&curso={numero}
         [HttpGet]
         public async Task<ActionResult<IEnumerable<MateriaDTO>>> ListarMaterias(
             [FromQuery] int? profesor,
@@ -30,14 +28,14 @@ namespace Plataforma24API.Controllers
         {
             var cons = _context.Materias.AsQueryable();
 
-            if (profesor != null && curso != 0)
+            if (profesor != null && profesor != 0)
             {
-                cons = cons.Where(m => m.NumProfesor == profesor);
+                cons = cons.Where(m => m.IdProfesor == profesor);
             }
 
             if (curso != null && curso != 0)
             {
-                cons = cons.Where(m => m.NumCurso == curso);
+                cons = cons.Where(m => m.IdCurso == curso);
             }
 
             var resultados = await cons.ToListAsync();
@@ -45,65 +43,61 @@ namespace Plataforma24API.Controllers
             return Ok(resultados.Select(m => MapearDTO(m)));
         }
 
-        // GET /materias/{numero}
-        [HttpGet("{numero}")]
-        public async Task<ActionResult<MateriaDTO>> BuscarMateria(int numero)
+        [HttpGet("{id}")]
+        public async Task<ActionResult<MateriaDTO>> BuscarMateria(int id)
         {
-            var m = await _context.Materias.FindAsync(numero);
+            var m = await _context.Materias.FindAsync(id);
             if (m == null) return NotFound();
 
             return Ok(MapearDTO(m));
         }
 
 
-        // POST /materias/
         [HttpPost]
         public async Task<ActionResult<MateriaDTO>> CrearMateria([FromBody] MateriaDTO dto)
         {
             if (!User.EsAdmin()) return Forbid();
 
-            var existe = await _context.Materias.FindAsync(dto.Numero);
-            if (existe != null) return BadRequest();
+            var duplicada = await _context.Materias.AnyAsync(m => m.IdCurso == dto.IdCurso && m.Nombre == dto.Nombre);
+            if (duplicada) return BadRequest("Ya existe una materia con ese nombre en el curso.");
 
             var datos = new Materia
             {
-                Numero = dto.Numero,
                 Nombre = dto.Nombre,
-                NumProfesor = dto.NumProfesor,
-                NumCurso = dto.NumCurso,
+                IdProfesor = dto.IdProfesor,
+                IdCurso = dto.IdCurso,
             };
 
             _context.Materias.Add(datos);
 
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(BuscarMateria), new { numero = datos.Numero }, dto);
+            dto.Id = datos.Id;   
+            return CreatedAtAction(nameof(BuscarMateria), new { id = datos.Id }, dto);
         }
 
-        // PATCH /materias/{numero}
-        [HttpPatch("{numero}")]
-        public async Task<IActionResult> ActualizarMateria(int numero, [FromBody] ModificarMateriaDTO dto)
+        [HttpPatch("{id}")]
+        public async Task<IActionResult> ActualizarMateria(int id, [FromBody] ModificarMateriaDTO dto)
         {
             if (!User.EsAdmin()) return Forbid();
 
-            var materia = await _context.Materias.FindAsync(numero);
-            if (materia == null) return NotFound($"No se encontró la materia número {numero}");
+            var materia = await _context.Materias.FindAsync(id);
+            if (materia == null) return NotFound($"No se encontró la materia número {id}");
 
             if (dto.Nombre != null) materia.Nombre = dto.Nombre;
-            if (dto.NumProfesor.HasValue) materia.NumProfesor = dto.NumProfesor.Value;
-            if (dto.NumCurso.HasValue) materia.NumCurso = dto.NumCurso.Value;
+            if (dto.IdProfesor.HasValue) materia.IdProfesor = dto.IdProfesor.Value;
+            if (dto.IdCurso.HasValue) materia.IdCurso = dto.IdCurso.Value;
 
             await _context.SaveChangesAsync();
             return NoContent();
         }
 
-        // DELETE /materias/{numero}
-        [HttpDelete]
-        public async Task<IActionResult> EliminarMateria(int numero)
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> EliminarMateria(int id)
         {
             if (!User.EsAdmin()) return Forbid();
 
-            var materia = await _context.Materias.FindAsync(numero);
+            var materia = await _context.Materias.FindAsync(id);
             if (materia == null) return NotFound();
 
             try
@@ -119,15 +113,14 @@ namespace Plataforma24API.Controllers
             return NoContent();
         }
 
-        // Función auxiliar
         private static MateriaDTO MapearDTO(Materia m)
         {
             return new MateriaDTO
             {
-                Numero = m.Numero,
+                Id = m.Id,
                 Nombre = m.Nombre,
-                NumProfesor = m.NumProfesor,
-                NumCurso = m.NumCurso
+                IdProfesor = m.IdProfesor,
+                IdCurso = m.IdCurso
             };
         }
     }

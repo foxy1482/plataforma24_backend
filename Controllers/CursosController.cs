@@ -15,29 +15,24 @@ namespace Plataforma24API.Controllers
     public class CursosController : ControllerBase
     {
         private readonly AppDbContext _context;
-        
+
         public CursosController(AppDbContext context)
         {
             _context = context;
         }
 
-        // GET /cursos
-        // GET /cursos?ano={año}&turno={turno}
         [HttpGet]
         public async Task<ActionResult<IEnumerable<CursoDTO>>> ListarCursos(
             [FromQuery] Year? ano,
             [FromQuery] Turno? turno)
         {
-            // Empezamos con la consulta base
             var cons = _context.Cursos.AsQueryable();
 
-            // Si el usuario mandó el año aplico el filtro
             if (ano.HasValue)
             {
                 cons = cons.Where(c => c.Año == ano.Value);
             }
 
-            // Si el usuario mandó el turno, le agrego el filtro
             if (turno.HasValue)
             {
                 cons = cons.Where(c => c.Turno == turno.Value);
@@ -48,28 +43,27 @@ namespace Plataforma24API.Controllers
             return Ok(resultados.Select(c => MapearDTO(c)));
         }
 
-        // GET /cursos/{numero}
-        [HttpGet("{numero}")]
-        public async Task<ActionResult<CursoDTO>> BuscarCurso(int numero)
+        [HttpGet("{id}")]
+        public async Task<ActionResult<CursoDTO>> BuscarCurso(int id)
         {
-            var c = await _context.Cursos.FindAsync(numero);
+            var c = await _context.Cursos.FindAsync(id);
             if (c == null) return NotFound();
 
             return Ok(MapearDTO(c));
         }
 
-        // POST /cursos
         [HttpPost]
         public async Task<ActionResult<CursoDTO>> CrearCurso([FromBody] CursoDTO dto)
         {
             if (!User.EsAdmin()) return Forbid();
 
-            var existe = await _context.Cursos.FindAsync(dto.Numero);
-            if (existe != null) return BadRequest();
+            var duplicado = await _context.Cursos.AnyAsync(c =>
+                c.Año == dto.Año && c.Division == dto.Division &&
+                c.Turno == dto.Turno && c.CicloLectivo == dto.CicloLectivo);
+            if (duplicado) return BadRequest("Ya existe un curso con ese año, división, turno y ciclo lectivo.");
 
             var datos = new Curso
             {
-                Numero = dto.Numero,
                 Año = dto.Año,
                 Division = dto.Division,
                 Turno = dto.Turno,
@@ -81,19 +75,18 @@ namespace Plataforma24API.Controllers
 
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(BuscarCurso), new { numero = datos.Numero}, dto);
+            dto.Id = datos.Id;  
+            return CreatedAtAction(nameof(BuscarCurso), new { id = datos.Id }, dto);
         }
 
-        // PATCH /cursos/{numero}
-        [HttpPatch("{numero}")]
-        public async Task<IActionResult> ActualizarCurso(int numero, [FromBody] ModificarCursoDTO dto)
+        [HttpPatch("{id}")]
+        public async Task<IActionResult> ActualizarCurso(int id, [FromBody] ModificarCursoDTO dto)
         {
             if (!User.EsAdmin()) return Forbid();
 
-            var curso = await _context.Cursos.FindAsync(numero);
-            if (curso == null) return NotFound($"No se encontró el curso número {numero}");
+            var curso = await _context.Cursos.FindAsync(id);
+            if (curso == null) return NotFound($"No se encontró el curso número {id}");
 
-            // Actualización parcial: solo se modifican los campos que vienen en el JSON
             if (dto.Año.HasValue) curso.Año = dto.Año.Value;
             if (dto.Division.HasValue) curso.Division = dto.Division.Value;
             if (dto.Turno.HasValue) curso.Turno = dto.Turno.Value;
@@ -104,13 +97,12 @@ namespace Plataforma24API.Controllers
             return NoContent();
         }
 
-        // DELETE /cursos/{numero}
-        [HttpDelete("{numero}")]
-        public async Task<IActionResult> EliminarCurso(int numero)
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> EliminarCurso(int id)
         {
             if (!User.EsAdmin()) return Forbid();
 
-            var curso = await _context.Cursos.FindAsync(numero);
+            var curso = await _context.Cursos.FindAsync(id);
             if (curso == null) return NotFound();
 
             try
@@ -126,12 +118,11 @@ namespace Plataforma24API.Controllers
             return NoContent();
         }
 
-        // Función auxiliar para no repetir código de mapeo
         private static CursoDTO MapearDTO(Curso c)
         {
             return new CursoDTO
             {
-                Numero = c.Numero,
+                Id = c.Id,
                 Año = c.Año,
                 Division = c.Division,
                 Turno = c.Turno,

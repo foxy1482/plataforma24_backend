@@ -37,7 +37,7 @@ namespace Plataforma24API.Auth
 
         public static bool EsAdmin(this ClaimsPrincipal user)
         {
-            var rolTokenClaim = user.FindFirst("numRol")?.Value;
+            var rolTokenClaim = user.FindFirst("idRol")?.Value;
             if (rolTokenClaim == null) return false;
 
             if (int.TryParse(rolTokenClaim, out int rolToken))
@@ -58,18 +58,38 @@ namespace Plataforma24API.Auth
             return rol == 2;
         }
 
+        // Rol 7 = preceptor (nuevo en la v2)
+        public static bool EsPreceptor(this ClaimsPrincipal user)
+        {
+            return user.GetRol() == 7;
+        }
+
+        // Rol 1 = alumno, rol 4 = adminAlumno (los dos tienen prefijo ALU en la base)
+        public static bool EsAlumno(this ClaimsPrincipal user)
+        {
+            var rol = user.GetRol();
+            return rol == 1 || rol == 4;
+        }
+
+        // Personal de la escuela: administración, profesores y preceptores.
+        // Es quien ve boletines/asistencia de otros y modera el foro.
+        public static bool EsPersonal(this ClaimsPrincipal user)
+        {
+            return user.EsAdmin() || user.EsProfe() || user.EsPreceptor();
+        }
+
         public static bool TienePermiso(this ClaimsPrincipal user, int idUsuarioObjetivo)
         {
-            var idUsuarioTokenClaim = user.FindFirst("idUsuario")?.Value;
+            var idTokenClaim = user.FindFirst("idUsuario")?.Value;
 
-            if (idUsuarioTokenClaim == null) return false;
+            if (idTokenClaim == null) return false;
 
             // Si es admin, tiene permiso para todo
             if (user.EsAdmin()) return true;
 
-            if (int.TryParse(idUsuarioTokenClaim, out int idUsuarioToken))
+            if (int.TryParse(idTokenClaim, out int idToken))
             {
-                return idUsuarioToken == idUsuarioObjetivo;
+                return idToken == idUsuarioObjetivo;
             }
 
             return false;

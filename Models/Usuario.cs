@@ -8,7 +8,7 @@ namespace Plataforma24API.Models
     {
         [Key]
         [Column("id")]
-        public int id { get; set; }
+        public int Id { get; set; }
         [Column("numero_legajo")]
         public string NumeroLegajo { get; set; } = null!;
         [Column("nombre_usuario")]

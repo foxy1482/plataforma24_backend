@@ -19,18 +19,16 @@ namespace Plataforma24API.Controllers
             _context = context;
         }
 
-        // GET /materiales
-        // GET /materiales?materia={numMateria}
 
         [HttpGet]
         public async Task<ActionResult<IEnumerable<MaterialDTO>>> ListarMateriales(
-            [FromQuery] int? numMateria)
+            [FromQuery] int? idMateria)
         {
             var cons = _context.Materiales.AsQueryable();
 
-            if (numMateria != null && numMateria != 0)
+            if (idMateria != null && idMateria != 0)
             {
-                cons = cons.Where(m => m.NumMateria == numMateria);
+                cons = cons.Where(m => m.IdMateria == idMateria);
             }
 
             var resultados = await cons.ToListAsync();
@@ -38,17 +36,15 @@ namespace Plataforma24API.Controllers
             return Ok(resultados.Select(m => MapearDTO(m)));
         }
 
-        // GET /materiales/{numero}
-        [HttpGet("{numero}")]
-        public async Task<ActionResult<MaterialDTO>> BuscarMaterial(int numero)
+        [HttpGet("{id}")]
+        public async Task<ActionResult<MaterialDTO>> BuscarMaterial(int id)
         {
-            var m = await _context.Materiales.FindAsync(numero);
+            var m = await _context.Materiales.FindAsync(id);
             if (m == null) return NotFound();
 
             return Ok(MapearDTO(m));
         }
 
-        // POST /materiales
         [HttpPost]
         public async Task<ActionResult<MaterialDTO>> CrearMaterial([FromBody] CrearMaterialDTO dto)
         {
@@ -59,25 +55,24 @@ namespace Plataforma24API.Controllers
                 Titulo = dto.Titulo,
                 Descripcion = dto.Descripcion,
                 PublicadaDesde = dto.PublicadaDesde,
-                NumMateria = dto.NumMateria,
+                IdMateria = dto.IdMateria,
             };
-           
+
 
             _context.Materiales.Add(datos);
 
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(BuscarMaterial), new { numero = datos.Numero }, dto);
+            return CreatedAtAction(nameof(BuscarMaterial), new { id = datos.Id }, dto);
         }
 
-        // PATCH /materiales/{numero}
-        [HttpPatch("{numero}")]
-        public async Task<IActionResult> ActualizarMaterial(int numero, [FromBody] ModificarMaterialDTO dto)
+        [HttpPatch("{id}")]
+        public async Task<IActionResult> ActualizarMaterial(int id, [FromBody] ModificarMaterialDTO dto)
         {
             if (!User.EsAdmin()) return Forbid();
 
-            var material = await _context.Materiales.FindAsync(numero);
-            if (material == null) return NotFound($"No se encontró el material número {numero}");
+            var material = await _context.Materiales.FindAsync(id);
+            if (material == null) return NotFound($"No se encontró el material número {id}");
 
 
             if (dto.Titulo != null) material.Titulo = dto.Titulo;
@@ -87,20 +82,20 @@ namespace Plataforma24API.Controllers
             return NoContent();
         }
 
-        // DELETE /materiales/{numero}
-        [HttpDelete("{numero}")]
-        public async Task<IActionResult> EliminarMaterial(int numero)
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> EliminarMaterial(int id)
         {
             if (!User.EsAdmin()) return Forbid();
 
-            var material = await _context.Materiales.FindAsync(numero);
+            var material = await _context.Materiales.FindAsync(id);
             if (material == null) return NotFound();
 
             try
             {
                 _context.Materiales.Remove(material);
                 await _context.SaveChangesAsync();
-            } catch (DbUpdateException)
+            }
+            catch (DbUpdateException)
             {
                 return BadRequest("No se pudo eliminar la tarea");
             }
@@ -112,11 +107,11 @@ namespace Plataforma24API.Controllers
         {
             return new MaterialDTO
             {
-                Numero = m.Numero,
+                Id = m.Id,
                 Titulo = m.Titulo,
                 Descripcion = m.Descripcion,
                 PublicadaDesde = m.PublicadaDesde,
-                NumMateria = m.NumMateria,
+                IdMateria = m.IdMateria,
             };
         }
     }

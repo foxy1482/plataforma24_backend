@@ -20,19 +20,19 @@ namespace Plataforma24API.Auth
         [HttpGet("profile")]
         public IActionResult Profile()
         {
-            var claim = User.FindFirst("legajoUs");
+            var claim = User.FindFirst("idUsuario");
 
             if (claim == null)
             {
-                return Unauthorized("No se encontró el Número de Legajo del usuario con el token proporcionado.");
+                return Unauthorized("No se encontró el id del usuario en el token proporcionado.");
             }
 
-            if (!int.TryParse(claim.Value, out int legajo))
+            if (!int.TryParse(claim.Value, out int idUsuario))
             {
-                return BadRequest("El Número de Legajo del usuario en el token no es válido");
+                return BadRequest("El id del usuario en el token no es válido");
             }
 
-            var perfil = _authService.Profile(legajo);
+            var perfil = _authService.Profile(idUsuario);
             return Ok(perfil);
         }
 
@@ -44,7 +44,8 @@ namespace Plataforma24API.Auth
                 var token = _authService.Login(dto).Token;
 
                 return Ok(new AuthResponseDTO { Token = token });
-            } catch (Exception ex)
+            }
+            catch (Exception ex)
             {
                 return Unauthorized(ex.Message);
             }
@@ -57,7 +58,7 @@ namespace Plataforma24API.Auth
             {
                 var token = _authService.Registro(dto).Token;
 
-                return Ok(new AuthResponseDTO { Token=token });
+                return Ok(new AuthResponseDTO { Token = token });
             }
             catch (Exception ex)
             {

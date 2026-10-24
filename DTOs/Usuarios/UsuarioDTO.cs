@@ -5,17 +5,16 @@ namespace Plataforma24API.DTOs.Usuarios
 {
     public class UsuarioDTO
     {
-        [Key]
-        [Column("numero_legajo")]
-        public int NumeroLegajo { get; set; }
+        public int Id { get; set; }
 
-        public string Email { get; set; }
+        public string NumeroLegajo { get; set; } = null!;
 
-        public string NombreUsuario { get; set; }
+        public string Email { get; set; } = null!;
 
-        [Column("num_rol")]
-        public int NumRol { get; set; }
-        [Column("num_curso")]
-        public int? NumCurso { get; set; }
+        public string NombreUsuario { get; set; } = null!;
+
+        public int IdRol { get; set; }
+
+        public int? IdCurso { get; set; }
     }
 }

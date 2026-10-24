@@ -24,62 +24,46 @@ namespace Plataforma24API.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<UsuarioDTO>>> ListarUsuarios()
         {
-            return await _context.Usuarios
-                .Select(u => new UsuarioDTO
-                {
-                    NumeroLegajo = u.NumeroLegajo,
-                    Email = u.Email,
-                    NombreUsuario = u.NombreUsuario,
-                    NumRol = u.NumRol,
-                    NumCurso = u.NumCurso
-                }).ToListAsync();
+            // Primero traemos las entidades y despues mapeamos con el helper
+            var usuarios = await _context.Usuarios.ToListAsync();
+            return Ok(usuarios.Select(u => MapearDTO(u)));
         }
 
-        // GET /usuarios/{legajo}
-        [HttpGet("{legajo}")]
-        public async Task<ActionResult<UsuarioDTO>> ObtenerUsuario(int legajo)
+        // GET /usuarios/{idUsuario}
+        [HttpGet("{idUsuario}")]
+        public async Task<ActionResult<UsuarioDTO>> ObtenerUsuario(int idUsuario)
         {
-            var u = await _context.Usuarios.FindAsync(legajo);
+            // Ahora "id" es la PK, asi que FindAsync sigue funcionando
+            var u = await _context.Usuarios.FindAsync(idUsuario);
             if (u == null) return NotFound();
 
-            return new UsuarioDTO
-            {
-                NumeroLegajo = u.NumeroLegajo,
-                Email = u.Email,
-                NombreUsuario = u.NombreUsuario,
-                NumRol = u.NumRol,
-                NumCurso = u.NumCurso
-            };
+            return MapearDTO(u);
         }
 
-        // GET /usuarios/curso/{idCurso}
-        // Retorna alumnos del curso, excluyendo al profesor (Rol 2 asumiendo tu esquema)
+        // GET /usuarios/curso/{numCurso}
+        // Retorna los usuarios del curso
         [HttpGet("curso/{numCurso}")]
         public async Task<ActionResult<IEnumerable<UsuarioDTO>>> ObtenerUsuariosPorCurso(int numCurso)
         {
-            return await _context.Usuarios
-                .Where(u => u.NumCurso == numCurso)
-                .Select(u => new UsuarioDTO
-                {
-                    NumeroLegajo = u.NumeroLegajo,
-                    NombreUsuario = u.NombreUsuario,
-                    Email = u.Email,
-                    NumRol = u.NumRol
-                }).ToListAsync();
+            var usuarios = await _context.Usuarios
+                .Where(u => u.IdCurso == numCurso)
+                .ToListAsync();
+
+            return Ok(usuarios.Select(u => MapearDTO(u)));
         }
 
-        // PATCH /usuarios/{legajo}
-        [HttpPatch("{legajo}")]
-        public async Task<IActionResult> ActualizarUsuario(int legajo, [FromBody] ModificarUsuarioDTO dto)
+        // PATCH /usuarios/{idUsuario}
+        [HttpPatch("{idUsuario}")]
+        public async Task<IActionResult> ActualizarUsuario(int idUsuario, [FromBody] ModificarUsuarioDTO dto)
         {
-            if (!User.TienePermiso(legajo)) return Forbid();
+            if (!User.TienePermiso(idUsuario)) return Forbid();
 
-            var usuario = await _context.Usuarios.FindAsync(legajo);
+            var usuario = await _context.Usuarios.FindAsync(idUsuario);
             if (usuario == null) return NotFound();
 
             if (!User.EsAdmin())
             {
-                if (dto.NumRol.HasValue || dto.NumCurso.HasValue)
+                if (dto.IdRol.HasValue || dto.IdCurso.HasValue)
                 {
                     return BadRequest("No tienes permisos para modificar el Rol o el Curso.");
                 }
@@ -87,11 +71,11 @@ namespace Plataforma24API.Controllers
 
             // Actualización parcial lógica
             if (dto.NombreUsuario != null) usuario.NombreUsuario = dto.NombreUsuario;
-            
+
             if (User.EsAdmin())
             {
-                if (dto.NumRol.HasValue && User.EsAdmin()) usuario.NumRol = dto.NumRol.Value;
-                if (dto.NumCurso.HasValue && User.EsAdmin()) usuario.NumCurso = dto.NumCurso.Value;
+                if (dto.IdRol.HasValue) usuario.IdRol = dto.IdRol.Value;
+                if (dto.IdCurso.HasValue) usuario.IdCurso = dto.IdCurso.Value;
 
                 if (dto.Email != null) usuario.Email = dto.Email;
             }
@@ -100,18 +84,32 @@ namespace Plataforma24API.Controllers
             return NoContent();
         }
 
-        // DELETE /usuarios/{legajo}
-        [HttpDelete("{legajo}")]
-        public async Task<IActionResult> EliminarUsuario(int legajo)
+        // DELETE /usuarios/{idUsuario}
+        [HttpDelete("{idUsuario}")]
+        public async Task<IActionResult> EliminarUsuario(int idUsuario)
         {
             if (!User.EsAdmin()) return Forbid();
 
-            var usuario = await _context.Usuarios.FindAsync(legajo);
+            var usuario = await _context.Usuarios.FindAsync(idUsuario);
             if (usuario == null) return NotFound();
 
             _context.Usuarios.Remove(usuario);
             await _context.SaveChangesAsync();
             return NoContent();
+        }
+
+        // Función auxiliar para no repetir el mapeo en cada endpoint
+        private static UsuarioDTO MapearDTO(Usuario u)
+        {
+            return new UsuarioDTO
+            {
+                Id = u.Id,
+                NumeroLegajo = u.NumeroLegajo,
+                Email = u.Email,
+                NombreUsuario = u.NombreUsuario,
+                IdRol = u.IdRol,
+                IdCurso = u.IdCurso
+            };
         }
     }
 }

@@ -20,8 +20,6 @@ namespace Plataforma24API.Controllers
             _context = context;
         }
 
-        // GET /tareas
-        // GET /tareas?materia={numMateria}
         [HttpGet]
         public async Task<ActionResult<IEnumerable<TareaDTO>>> ListarTareas(
             [FromQuery] int? materia)
@@ -30,7 +28,7 @@ namespace Plataforma24API.Controllers
 
             if (materia != null && materia != 0)
             {
-                cons = cons.Where(t => t.NumMateria == materia);
+                cons = cons.Where(t => t.IdMateria == materia);
             }
 
             var resultados = await cons.ToListAsync();
@@ -38,21 +36,22 @@ namespace Plataforma24API.Controllers
             return Ok(resultados.Select(t => MapearDTO(t)));
         }
 
-        // GET /tareas/{numero}
-        [HttpGet("{numero}")]
-        public async Task<ActionResult<TareaDTO>> BuscarTarea(int numero)
+        [HttpGet("{id}")]
+        public async Task<ActionResult<TareaDTO>> BuscarTarea(int id)
         {
-            var t = await _context.Tareas.FindAsync(numero);
+            var t = await _context.Tareas.FindAsync(id);
             if (t == null) return NotFound();
 
             return Ok(MapearDTO(t));
         }
 
-        // POST /tareas
         [HttpPost]
         public async Task<ActionResult<TareaDTO>> CrearTarea([FromBody] CrearTareaDTO dto)
         {
             if (!User.EsAdmin() && !User.EsProfe()) return Forbid();
+
+            if (dto.FechaEntrega < dto.PublicadaDesde)
+                return BadRequest("La fecha de entrega no puede ser anterior a la fecha de publicación.");
 
             var datos = new Tarea
             {
@@ -60,41 +59,42 @@ namespace Plataforma24API.Controllers
                 Descripcion = dto.Descripcion,
                 FechaEntrega = dto.FechaEntrega,
                 PublicadaDesde = dto.PublicadaDesde,
-                NumMateria = dto.NumMateria,
+                IdMateria = dto.IdMateria,
             };
 
             _context.Tareas.Add(datos);
 
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(BuscarTarea), new { numero = datos.Numero }, dto);
+            return CreatedAtAction(nameof(BuscarTarea), new { id = datos.Id }, dto);
 
         }
 
-        // PATCH /tareas/{numero}
-        [HttpPatch("{numero}")]
-        public async Task<IActionResult> ActualizarTarea(int numero, [FromBody] ModificarTareaDTO dto)
+        [HttpPatch("{id}")]
+        public async Task<IActionResult> ActualizarTarea(int id, [FromBody] ModificarTareaDTO dto)
         {
             if (!User.EsAdmin() && !User.EsProfe()) return Forbid();
 
-            var tarea = await _context.Tareas.FindAsync(numero);
-            if (tarea == null) return NotFound($"No se encontró la tarea número {numero}");
+            var tarea = await _context.Tareas.FindAsync(id);
+            if (tarea == null) return NotFound($"No se encontró la tarea número {id}");
 
             if (dto.Titulo != null) tarea.Titulo = dto.Titulo;
             if (dto.Descripcion != null) tarea.Descripcion = dto.Descripcion;
             if (dto.FechaEntrega.HasValue) tarea.FechaEntrega = dto.FechaEntrega.Value;
 
+            if (tarea.FechaEntrega < tarea.PublicadaDesde)
+                return BadRequest("La fecha de entrega no puede ser anterior a la fecha de publicación.");
+
             await _context.SaveChangesAsync();
             return NoContent();
         }
 
-        // DELETE /tareas/{numero}
-        [HttpDelete("{numero}")]
-        public async Task<IActionResult> EliminarTarea(int numero)
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> EliminarTarea(int id)
         {
             if (!User.EsAdmin() && !User.EsProfe()) return Forbid();
 
-            var tarea = await _context.Tareas.FindAsync(numero);
+            var tarea = await _context.Tareas.FindAsync(id);
             if (tarea == null) return NotFound();
 
             try
@@ -113,12 +113,12 @@ namespace Plataforma24API.Controllers
         {
             return new TareaDTO
             {
-                Numero = t.Numero,
+                Id = t.Id,
                 Titulo = t.Titulo,
                 Descripcion = t.Descripcion,
                 FechaEntrega = t.FechaEntrega,
                 PublicadaDesde = t.PublicadaDesde,
-                NumMateria = t.NumMateria,
+                IdMateria = t.IdMateria,
             };
         }
     }

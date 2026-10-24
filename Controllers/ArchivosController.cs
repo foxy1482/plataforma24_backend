@@ -22,11 +22,11 @@ namespace Plataforma24API.Controllers
         }
 
         // GET /archivos/
-        // GET /archivos?nombre={nombre}&legajo={numLegajo}
+        // GET /archivos?nombre={nombre}&idUsuario={idUsuario}
         [HttpGet]
         public async Task<ActionResult<IEnumerable<ArchivoDTO>>> ListarArchivos(
             [FromQuery] string? nombre,
-            [FromQuery] int? legajo
+            [FromQuery] int? idUsuario
             )
         {
             var cons = _context.Archivos.AsQueryable();
@@ -36,9 +36,9 @@ namespace Plataforma24API.Controllers
                 cons = cons.Where(arc => arc.NombreOriginal == nombre);
             }
 
-            if (legajo.HasValue)
+            if (idUsuario.HasValue)
             {
-                cons = cons.Where(arc => arc.NumLegajo == legajo.Value);
+                cons = cons.Where(arc => arc.IdUsuario == idUsuario.Value);
             }
 
             var resultados = await cons.ToListAsync();
@@ -46,11 +46,11 @@ namespace Plataforma24API.Controllers
             return Ok(resultados.Select(arc => MapearDTO(arc)));
         }
 
-        // GET /archivos/{numero}
-        [HttpGet("{numero}")]
-        public async Task<ActionResult<ArchivoDTO>> BuscarArchivo(int numero)
+        // GET /archivos/{id}
+        [HttpGet("{id}")]
+        public async Task<ActionResult<ArchivoDTO>> BuscarArchivo(int id)
         {
-            var a = await _context.Archivos.FindAsync(numero);
+            var a = await _context.Archivos.FindAsync(id);
             if (a == null) return NotFound();
 
             return Ok(MapearDTO(a));
@@ -59,12 +59,12 @@ namespace Plataforma24API.Controllers
         // POST /archivos/
         [HttpPost]
         [Consumes("multipart/form-data")]
-        public async Task<ActionResult<ArchivoDTO>> SubirArchivo(IFormFile archivo, [FromQuery] string? ruta) // Quitamos el numLegajo de acá
+        public async Task<ActionResult<ArchivoDTO>> SubirArchivo(IFormFile archivo, [FromQuery] string? ruta) // El id del usuario sale del token
         {
             if (archivo == null || archivo.Length == 0) return BadRequest("Archivo no seleccionado");
 
-            // Sacamos el legajo del token del usuario actual
-            int legajoUsuario = User.GetLegajo()!.Value;
+            // Sacamos el id del usuario actual del token
+            int idUsuario = User.GetUserId()!.Value;
 
             string subCarpeta = ruta ?? "";
             var carpetaDestino = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", subCarpeta);
@@ -89,26 +89,26 @@ namespace Plataforma24API.Controllers
                 Ruta = rutaFinal, // <--- Guardamos "subcarpeta/guid_archivo.jpg"
                 Tipo = archivo.ContentType,
                 FechaSubida = DateTime.UtcNow,
-                NumLegajo = legajoUsuario
+                IdUsuario = idUsuario
             };
 
             _context.Archivos.Add(datos);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(BuscarArchivo), new { numero = datos.Numero }, MapearDTO(datos));
+            return CreatedAtAction(nameof(BuscarArchivo), new { id = datos.Id }, MapearDTO(datos));
         }
 
-        // GET /archivos/descargar/{numero}
-        [HttpGet("descargar/{numero}")]
-        public async Task<IActionResult> DescargarArchivo(int numero)
+        // GET /archivos/descargar/{id}
+        [HttpGet("descargar/{id}")]
+        public async Task<IActionResult> DescargarArchivo(int id)
         {
-            var registro = await _context.Archivos.FindAsync(numero);
+            var registro = await _context.Archivos.FindAsync(id);
             if (registro == null) return NotFound("El archivo no existe en la base de datos.");
 
-            var dueño = await _context.Usuarios.FindAsync(registro.NumLegajo);
+            var dueño = await _context.Usuarios.FindAsync(registro.IdUsuario);
             if (dueño == null) return NotFound("Dueño del archivo no encontrado.");
 
-            var miLegajo = User.GetLegajo();
+            var miId = User.GetUserId();
             var miRol = User.GetRol();
 
             // --- LÓGICA DE PERMISOS ---
@@ -120,12 +120,12 @@ namespace Plataforma24API.Controllers
             }
             else if (User.EsProfe())
             {
-                if (dueño.NumRol < 2) tieneAcceso = true;
-                if (registro.NumLegajo == miLegajo) tieneAcceso = true;
+                if (dueño.IdRol < 2) tieneAcceso = true;
+                if (registro.IdUsuario == miId) tieneAcceso = true;
             }
             else
             {
-                if (registro.NumLegajo == miLegajo) tieneAcceso = true;
+                if (registro.IdUsuario == miId) tieneAcceso = true;
             }
 
             if (!tieneAcceso) return Forbid("No tenés permiso para ver este archivo.");
@@ -146,40 +146,36 @@ namespace Plataforma24API.Controllers
             return File(bytes, registro.Tipo, registro.NombreOriginal);
         }
 
-        // PATCH /archivos/{numero}
-        [HttpPatch("{numero}")]
-        public async Task<IActionResult> ActualizarMetadatos(int numero, [FromBody] ModificarArchivoDTO dto)
+        // PATCH /archivos/{id}
+        [HttpPatch("{id}")]
+        public async Task<IActionResult> ActualizarMetadatos(int id, [FromBody] ModificarArchivoDTO dto)
         {
             if (!User.EsAdmin()) return Forbid();
 
-            var archivo = await _context.Archivos.FindAsync(numero);
+            var archivo = await _context.Archivos.FindAsync(id);
             if (archivo == null) return NotFound();
 
-            // Solo permitimos cambiar el nombre "lindo" o quizás el legajo si hubo un error
             if (!string.IsNullOrEmpty(dto.NombreOriginal))
             {
                 archivo.NombreOriginal = dto.NombreOriginal;
             }
 
-            if (dto.NumLegajo.HasValue)
+            if (dto.IdUsuario.HasValue)
             {
-                archivo.NumLegajo = dto.NumLegajo.Value;
+                archivo.IdUsuario = dto.IdUsuario.Value;
             }
 
             await _context.SaveChangesAsync();
             return NoContent();
         }
-        
-        // DELETE /archivos/{numero}
-        [HttpDelete("{numero}")]
-        public async Task<IActionResult> EliminarArchivo(int numero)
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> EliminarArchivo(int id)
         {
             if (!User.EsAdmin()) return Forbid();
 
-            var registro = await _context.Archivos.FindAsync(numero);
+            var registro = await _context.Archivos.FindAsync(id);
             if (registro == null) return NotFound();
 
-            // 1. Intentar borrar el archivo físico del disco
             var rutaCarpeta = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
             var rutaCompleta = Path.Combine(rutaCarpeta, registro.Ruta);
 
@@ -200,34 +196,32 @@ namespace Plataforma24API.Controllers
 
             return NoContent();
         }
-        [HttpGet("ver/{numero}")]
-        public async Task<IActionResult> VerArchivo(int numero)
+        [HttpGet("ver/{id}")]
+        public async Task<IActionResult> VerArchivo(int id)
         {
-            var registro = await _context.Archivos.FindAsync(numero);
+            var registro = await _context.Archivos.FindAsync(id);
             if (registro == null) return NotFound();
 
-            var dueño = await _context.Usuarios.FindAsync(registro.NumLegajo);
+            var dueño = await _context.Usuarios.FindAsync(registro.IdUsuario);
             if (dueño == null) return NotFound("Dueño del archivo no encontrado.");
 
-            var miLegajo = User.GetLegajo();
+            var miId = User.GetUserId();
             var miRol = User.GetRol();
 
-            // --- LÓGICA DE PERMISOS ---
             bool tieneAcceso = false;
 
             if (User.EsAdmin())
             {
-                tieneAcceso = true; // Admin ve todo
+                tieneAcceso = true; 
             }
             else if (User.EsProfe())
             {
-                // Profe ve archivos si el dueño es un alumno (rol menor a 2)
-                if (dueño.NumRol < 2) tieneAcceso = true;
-                if (registro.NumLegajo == miLegajo) tieneAcceso = true;
+                if (dueño.IdRol < 2) tieneAcceso = true;
+                if (registro.IdUsuario == miId) tieneAcceso = true;
             }
             else
             {
-                if (registro.NumLegajo == miLegajo) tieneAcceso = true;
+                if (registro.IdUsuario == miId) tieneAcceso = true;
             }
 
             if (!tieneAcceso) return Forbid("No tenés permiso para ver este archivo.");
@@ -244,13 +238,13 @@ namespace Plataforma24API.Controllers
         {
             return new ArchivoDTO
             {
-                Numero = a.Numero,
+                Id = a.Id,
                 NombreOriginal = a.NombreOriginal,
                 GuidArchivo = a.GuidArchivo,
                 Ruta = a.Ruta,
                 Tipo = a.Tipo,
                 FechaSubida = a.FechaSubida,
-                NumLegajo = a.NumLegajo,
+                IdUsuario = a.IdUsuario,
             };
         }
     }

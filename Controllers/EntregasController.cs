@@ -20,81 +20,77 @@ namespace Plataforma24API.Controllers
             _context = context;
         }
 
-        // GET /entregas/alumno/{legajo}
-        [HttpGet("alumno/{legajo}")]
-        public async Task<ActionResult<IEnumerable<Entrega>>> BuscarPorAlumno(int legajo)
+        [HttpGet("alumno/{idUsuario}")]
+        public async Task<ActionResult<IEnumerable<Entrega>>> BuscarPorAlumno(int idUsuario)
         {
-            if (!User.TienePermiso(legajo)) return Forbid();
+            if (!User.TienePermiso(idUsuario)) return Forbid();
 
             var entregas = await _context.Entregas
-                .Where(e => e.NumLegajo == legajo)
+                .Where(e => e.IdUsuario == idUsuario)
                 .ToListAsync();
             return Ok(entregas);
         }
 
-        // GET /entregas/tarea/{numero}
-        [HttpGet("tarea/{numero}")]
-        public async Task<ActionResult<IEnumerable<Entrega>>> ListarPorTarea(int numero)
+        [HttpGet("tarea/{idTarea}")]
+        public async Task<ActionResult<IEnumerable<Entrega>>> ListarPorTarea(int idTarea)
         {
             if (!User.EsAdmin()) return Forbid();
 
             var entregas = await _context.Entregas
-                .Where(e => e.NumTarea == numero)
+                .Where(e => e.IdTarea == idTarea)
                 .ToListAsync();
             return Ok(entregas);
         }
 
-        // GET /materias/{numMateria}/entregas/alumno/{legajo}
-        [HttpGet("/materias/{numMateria}/entregas/alumno/{legajo}")]
-        public async Task<ActionResult<IEnumerable<Entrega>>> ListarPorMateriaYAlumno(int numMateria, int legajo)
+        [HttpGet("/materias/{idMateria}/entregas/alumno/{idUsuario}")]
+        public async Task<ActionResult<IEnumerable<Entrega>>> ListarPorMateriaYAlumno(int idMateria, int idUsuario)
         {
-            if (!User.TienePermiso(legajo)) return Forbid();
+            if (!User.TienePermiso(idUsuario)) return Forbid();
 
-            // join con tareas
             var entregas = await _context.Entregas
                 .Join(_context.Tareas,
-                    e => e.NumTarea,
-                    t => t.Numero,
+                    e => e.IdTarea,
+                    t => t.Id,
                     (e, t) => new { Entrega = e, Tarea = t })
-                .Where(x => x.Tarea.NumMateria == numMateria && x.Entrega.NumLegajo == legajo)
+                .Where(x => x.Tarea.IdMateria == idMateria && x.Entrega.IdUsuario == idUsuario)
                 .Select(x => x.Entrega)
                 .ToListAsync();
 
             return Ok(entregas);
         }
 
-        // POST /entregas/
         [HttpPost]
         public async Task<ActionResult<Entrega>> RealizarEntrega([FromBody] EntregaDTO dto)
         {
-            int legajo = User.GetLegajo()!.Value;
+            int idUsuario = User.GetUserId()!.Value;
 
-            // Evitar entregas duplicadas para la misma tarea si fuera necesario
+            var tareaExiste = await _context.Tareas.AnyAsync(t => t.Id == dto.IdTarea);
+            if (!tareaExiste) return BadRequest("La tarea especificada no existe.");
+
             var existe = await _context.Entregas
-                .AnyAsync(e => e.NumTarea == dto.NumTarea && e.NumLegajo == legajo);
+                .AnyAsync(e => e.IdTarea == dto.IdTarea && e.IdUsuario == idUsuario);
             if (existe) return BadRequest("Ya realizaste una entrega para esta tarea.");
 
             var nuevaEntrega = new Entrega
             {
-                NumTarea = dto.NumTarea,
-                NumLegajo = legajo,
-                FechaEntrega = DateTime.UtcNow, // Automática
+                IdTarea = dto.IdTarea,
+                IdUsuario = idUsuario,
+                FechaEntrega = DateTime.UtcNow, 
             };
 
             _context.Entregas.Add(nuevaEntrega);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(BuscarPorAlumno), new { legajo = nuevaEntrega.NumLegajo }, nuevaEntrega);
+            return CreatedAtAction(nameof(BuscarPorAlumno), new { idUsuario = nuevaEntrega.IdUsuario }, nuevaEntrega);
         }
 
-        // PATCH /entregas/{numero}
-        [HttpPatch("{numero}")]
-        public async Task<IActionResult> ModificarEntrega(int numero, [FromBody] ModificarEntregaDTO dto)
+        [HttpPatch("{id}")]
+        public async Task<IActionResult> ModificarEntrega(int id, [FromBody] ModificarEntregaDTO dto)
         {
-            var entrega = await _context.Entregas.FindAsync(numero);
+            var entrega = await _context.Entregas.FindAsync(id);
             if (entrega == null) return NotFound();
 
-            if (!User.TienePermiso(entrega.NumLegajo)) return Forbid();
+            if (!User.TienePermiso(entrega.IdUsuario)) return Forbid();
 
             if (dto.FechaEntrega.HasValue)
                 entrega.FechaEntrega = dto.FechaEntrega.Value;
@@ -106,14 +102,13 @@ namespace Plataforma24API.Controllers
             return NoContent();
         }
 
-        // DELETE /entregas/{numero}
-        [HttpDelete("{numero}")]
-        public async Task<IActionResult> EliminarEntrega(int numero)
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> EliminarEntrega(int id)
         {
-            var entrega = await _context.Entregas.FindAsync(numero);
+            var entrega = await _context.Entregas.FindAsync(id);
             if (entrega == null) return NotFound();
 
-            if (!User.TienePermiso(entrega.NumLegajo)) return Forbid();
+            if (!User.TienePermiso(entrega.IdUsuario)) return Forbid();
 
             _context.Entregas.Remove(entrega);
             await _context.SaveChangesAsync();

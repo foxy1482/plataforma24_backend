@@ -20,26 +20,25 @@ namespace Plataforma24API.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<EntregaArchivoDTO>>> ListarArchivosEntrega(int numero)
+        public async Task<ActionResult<IEnumerable<EntregaArchivoDTO>>> ListarArchivosEntrega(int idEntrega)
         {
-            var entrega = await _context.Entregas.FindAsync(numero);
+            var entrega = await _context.Entregas.FindAsync(idEntrega);
             if (entrega == null) return NotFound("La entrega especificada no existe.");
 
-            // REGLA: Un alumno solo puede ver los archivos de SUS propias entregas.
-            if (!User.EsAdmin() && !User.EsProfe() && !User.TienePermiso(entrega.NumLegajo))
+            if (!User.EsAdmin() && !User.EsProfe() && !User.TienePermiso(entrega.IdUsuario))
             {
                 return Forbid("No tenés permiso para ver los archivos de esta entrega.");
             }
 
             var archivosEntrega = await _context.EntregaArchivos
-                .Where(ta => ta.NumEntrega == numero)
+                .Where(ta => ta.IdEntrega == idEntrega)
                 .Join(_context.Archivos,
-                    ta => ta.NumArchivo,
-                    a => a.Numero,
+                    ta => ta.IdArchivo,
+                    a => a.Id,
                     (ta, a) => new EntregaArchivoDTO
                     {
-                        NumEntrega = ta.NumEntrega,
-                        NumArchivo = ta.NumArchivo,
+                        IdEntrega = ta.IdEntrega,
+                        IdArchivo = ta.IdArchivo,
                         NombreOriginal = a.NombreOriginal,
                         Ruta = a.Ruta
                     })
@@ -48,35 +47,32 @@ namespace Plataforma24API.Controllers
             return Ok(archivosEntrega);
         }
 
-        // POST /entregas/archivos/
         [HttpPost]
         public async Task<IActionResult> VincularArchivo([FromBody] VincEntregaArchivoDTO dto)
         {
-            var entrega = await _context.Entregas.FindAsync(dto.NumEntrega);
-            var archivo = await _context.Archivos.FindAsync(dto.NumArchivo);
+            var entrega = await _context.Entregas.FindAsync(dto.IdEntrega);
+            var archivo = await _context.Archivos.FindAsync(dto.IdArchivo);
 
             if (entrega == null || archivo == null)
                 return BadRequest("La entrega o el archivo especificado no existen.");
 
-            // el usuario que vincula debe ser el dueño de la entrega
-            if (!User.EsAdmin() && !User.TienePermiso(entrega.NumLegajo))
+            if (!User.EsAdmin() && !User.TienePermiso(entrega.IdUsuario))
             {
                 return Forbid("Solo podés agregarle archivos a tu propia entrega.");
             }
-            // el usuario que vincula debe ser el dueño del ARCHIVO subido
-            if (!User.EsAdmin() && archivo.NumLegajo != User.GetLegajo())
+            if (!User.EsAdmin() && archivo.IdUsuario != User.GetUserId())
             {
                 return BadRequest("No podés vincular un archivo que no te pertenece.");
             }
 
             var yaVinculado = await _context.EntregaArchivos
-                .AnyAsync(ta => ta.NumEntrega == dto.NumEntrega && ta.NumArchivo == dto.NumArchivo);
+                .AnyAsync(ta => ta.IdEntrega == dto.IdEntrega && ta.IdArchivo == dto.IdArchivo);
             if (yaVinculado) return BadRequest("Este archivo ya está vinculado a la entrega.");
 
             var relacion = new EntregaArchivo
             {
-                NumEntrega = dto.NumEntrega,
-                NumArchivo = dto.NumArchivo
+                IdEntrega = dto.IdEntrega,
+                IdArchivo = dto.IdArchivo
             };
 
             _context.EntregaArchivos.Add(relacion);
@@ -85,21 +81,20 @@ namespace Plataforma24API.Controllers
             return NoContent();
         }
 
-        // DELETE /entregas/archivos/
         [HttpDelete]
-        public async Task<IActionResult> DesvincularArchivo([FromQuery] int numEntrega, [FromQuery] int numArchivo)
+        public async Task<IActionResult> DesvincularArchivo([FromQuery] int idEntrega, [FromQuery] int idArchivo)
         {
             var registro = await _context.EntregaArchivos
-                .FirstOrDefaultAsync(ta => ta.NumEntrega == numEntrega && ta.NumArchivo == numArchivo);
+                .FirstOrDefaultAsync(ta => ta.IdEntrega == idEntrega && ta.IdArchivo == idArchivo);
 
-            var infoEntrega = await _context.Entregas.FindAsync(numEntrega);
-            if (!User.EsAdmin() && (infoEntrega == null || !User.TienePermiso(infoEntrega.NumLegajo)))
+            var infoEntrega = await _context.Entregas.FindAsync(idEntrega);
+            if (!User.EsAdmin() && (infoEntrega == null || !User.TienePermiso(infoEntrega.IdUsuario)))
             {
                 return Forbid("No tenés permiso para modificar esta entrega.");
             }
 
-            var infoArchivo = await _context.Archivos.FindAsync(numArchivo);
-            if (!User.EsAdmin() && infoArchivo != null && infoArchivo.NumLegajo != User.GetLegajo())
+            var infoArchivo = await _context.Archivos.FindAsync(idArchivo);
+            if (!User.EsAdmin() && infoArchivo != null && infoArchivo.IdUsuario != User.GetUserId())
             {
                 return Forbid("No podés quitar un archivo que no subiste vos.");
             }
@@ -112,20 +107,19 @@ namespace Plataforma24API.Controllers
             return NoContent();
         }
 
-        // DELETE /entregas/archivos/{numero}
-        [HttpDelete("{numero}")]
-        public async Task<IActionResult> EliminarTodosLosArchivosDeEntrega(int numero)
+        [HttpDelete("{idEntrega}")]
+        public async Task<IActionResult> EliminarTodosLosArchivosDeEntrega(int idEntrega)
         {
-            var entrega = await _context.Entregas.FindAsync(numero);
+            var entrega = await _context.Entregas.FindAsync(idEntrega);
             if (entrega == null) return NotFound("La entrega no existe.");
 
-            if (!User.EsAdmin() && !User.TienePermiso(entrega.NumLegajo))
+            if (!User.EsAdmin() && !User.TienePermiso(entrega.IdUsuario))
             {
                 return Forbid("No podés modificar los archivos de esta entrega.");
             }
 
             var registrosABorrar = await _context.EntregaArchivos
-                .Where(ea => ea.NumEntrega == numero)
+                .Where(ea => ea.IdEntrega == idEntrega)
                 .ToListAsync();
 
             if (registrosABorrar.Any())

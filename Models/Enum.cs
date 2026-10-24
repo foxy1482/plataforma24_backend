@@ -1,5 +1,6 @@
 ﻿using NpgsqlTypes;
 using System.Runtime.Serialization;
+using System.Text.Json.Serialization;
 
 namespace Plataforma24API.Models
 {
@@ -55,5 +56,35 @@ namespace Plataforma24API.Models
         D11 = 11,
         [PgName("12")]
         D12 = 12
+    }
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public enum EstadoBoletin
+    {
+        [PgName("borrador")]
+        borrador,
+        [PgName("publicado")]
+        publicado
+    }
+
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public enum EstadoAsistencia
+    {
+        [PgName("presente")]
+        presente,
+        [PgName("ausente")]
+        ausente,
+        [PgName("tarde")]
+        tarde,
+        [PgName("justificado")]
+        justificado
+    }
+
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public enum ModoCoincidencia
+    {
+        [PgName("palabra_completa")]
+        palabra_completa,
+        [PgName("contiene")]
+        contiene
     }
 }

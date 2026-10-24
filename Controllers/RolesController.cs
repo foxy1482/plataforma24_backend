@@ -5,6 +5,7 @@ using Plataforma24API.Data;
 using Plataforma24API.DTOs.Rol;
 using Plataforma24API.Auth;
 using Plataforma24API.Models;
+using System.Text.RegularExpressions;
 
 namespace Plataforma24API.Controllers
 {
@@ -28,23 +29,25 @@ namespace Plataforma24API.Controllers
             return await _context.Roles.
                 Select(r => new RolDTO
                 {
-                    Numero = r.Numero,
-                    Nombre = r.Nombre
+                    Id = r.Id,
+                    Nombre = r.Nombre,
+                    PrefijoLegajo = r.PrefijoLegajo
                 }).ToListAsync();
         }
 
-        [HttpGet("{numero}")]
-        public async Task<ActionResult<RolDTO>> BuscarRol(int numero)
+        [HttpGet("{id}")]
+        public async Task<ActionResult<RolDTO>> BuscarRol(int id)
         {
             if (!User.EsAdmin()) return Forbid();
 
-            var r = await _context.Roles.FindAsync(numero);
+            var r = await _context.Roles.FindAsync(id);
             if (r == null) return NotFound();
 
             return Ok(new RolDTO
             {
-                Numero = r.Numero,
-                Nombre = r.Nombre
+                Id = r.Id,
+                Nombre = r.Nombre,
+                PrefijoLegajo = r.PrefijoLegajo
             });
         }
 
@@ -53,27 +56,31 @@ namespace Plataforma24API.Controllers
         {
             if (!User.EsAdmin()) return Forbid("No tienes permisos para realizar esta acción.");
 
-            var existe = await _context.Roles.AnyAsync(r => r.Numero == dto.Numero);
-            if (existe) return BadRequest("Ya existe un rol con el mismo número.");
+            if (string.IsNullOrWhiteSpace(dto.PrefijoLegajo) || !Regex.IsMatch(dto.PrefijoLegajo, "^[A-Z]{3}$"))
+                return BadRequest("El prefijo de legajo debe tener exactamente 3 letras mayúsculas.");
+
+            var existe = await _context.Roles.AnyAsync(r => r.Nombre == dto.Nombre);
+            if (existe) return BadRequest("Ya existe un rol con el mismo nombre.");
 
             var datos = new Rol
             {
-                Numero = dto.Numero,
-                Nombre = dto.Nombre
+                Nombre = dto.Nombre,
+                PrefijoLegajo = dto.PrefijoLegajo
             };
 
             _context.Roles.Add(datos);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(BuscarRol), new { numero = datos.Numero }, dto);
+            dto.Id = datos.Id;   
+            return CreatedAtAction(nameof(BuscarRol), new { id = datos.Id }, dto);
         }
 
-        [HttpPatch("{numero}")]
-        public async Task<IActionResult> ActualizarRol(int numero, [FromBody] ModificarRolDTO dto)
+        [HttpPatch("{id}")]
+        public async Task<IActionResult> ActualizarRol(int id, [FromBody] ModificarRolDTO dto)
         {
             if (!User.EsAdmin()) return Forbid();
 
-            var datos = await _context.Roles.FindAsync(numero);
+            var datos = await _context.Roles.FindAsync(id);
             if (datos == null) return NotFound();
 
             if (dto.Nombre != null) datos.Nombre = dto.Nombre;
@@ -82,12 +89,12 @@ namespace Plataforma24API.Controllers
             return NoContent();
         }
 
-        [HttpDelete("{numero}")]
-        public async Task<IActionResult> EliminarRol(int numero)
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> EliminarRol(int id)
         {
             if (!User.EsAdmin()) return Forbid();
 
-            var datos = await _context.Roles.FindAsync(numero);
+            var datos = await _context.Roles.FindAsync(id);
             if (datos == null) return NotFound();
 
             _context.Roles.Remove(datos);

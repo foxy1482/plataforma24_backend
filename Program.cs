@@ -8,10 +8,20 @@ using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("PermitirTodo", policy =>
+    {
+        policy.AllowAnyOrigin() 
+              .AllowAnyHeader() 
+              .AllowAnyMethod();  
+    });
+});
+
 // Add services to the container.
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"),
-    o => o.MapEnum<Sexo>().MapEnum<Turno>("turno").MapEnum<Year>("years").MapEnum<Division>("divisions"))
+    o => o.MapEnum<Sexo>().MapEnum<Turno>("turno").MapEnum<Year>("years").MapEnum<Division>("divisions").MapEnum<EstadoBoletin>("estado_boletin"))
 );
 
 builder.Services.AddControllers();
@@ -59,7 +69,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-
+app.UseCors("PermitirTodo");
 app.UseHttpsRedirection();
 
 app.UseAuthentication();
