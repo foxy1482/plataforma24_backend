@@ -1,143 +1,77 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Plataforma24API.Auth;
-using Plataforma24API.Data;
 using Plataforma24API.DTOs.Periodos;
-using Plataforma24API.Models;
+using Plataforma24API.Infrastructure.Security;
+using Plataforma24API.Services.Interfaces;
 
 namespace Plataforma24API.Controllers
 {
+    /// <summary>Periodos bimestrales de cada ciclo lectivo.</summary>
     [ApiController]
     [Route("periodos")]
     [Authorize]
     public class PeriodosController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly IPeriodoService _service;
 
-        public PeriodosController(AppDbContext context)
+        public PeriodosController(IPeriodoService service)
         {
-            _context = context;
+            _service = service;
         }
 
+        /// <summary>Lista los periodos, opcionalmente de un ciclo lectivo.</summary>
+        /// <param name="ciclo">Ciclo lectivo.</param>
+        // GET /periodos?ciclo={anio}
         [HttpGet]
         public async Task<ActionResult<IEnumerable<PeriodoDTO>>> ListarPeriodos([FromQuery] int? ciclo)
         {
-            var cons = _context.PeriodosBimestrales.AsQueryable();
-
-            if (ciclo.HasValue)
-            {
-                cons = cons.Where(p => p.CicloLectivo == ciclo.Value);
-            }
-
-            var resultados = await cons
-                .OrderBy(p => p.CicloLectivo)
-                .ThenBy(p => p.Bimestre)
-                .ToListAsync();
-
-            return Ok(resultados.Select(p => MapearDTO(p)));
+            return Ok(await _service.ListarAsync(ciclo));
         }
 
+        /// <summary>Devuelve un periodo.</summary>
+        /// <param name="id">Id del periodo.</param>
+        /// <response code="404">El periodo no existe.</response>
+        // GET /periodos/{id}
         [HttpGet("{id}")]
         public async Task<ActionResult<PeriodoDTO>> BuscarPeriodo(int id)
         {
-            var p = await _context.PeriodosBimestrales.FindAsync(id);
-            if (p == null) return NotFound();
-
-            return Ok(MapearDTO(p));
+            return Ok(await _service.BuscarAsync(id));
         }
 
+        /// <summary>Crea un periodo. Solo administradores.</summary>
+        /// <param name="dto">Ciclo, bimestre (1 a 4) y fechas.</param>
+        /// <response code="201">Periodo creado.</response>
+        /// <response code="400">Bimestre invalido, fechas incoherentes o periodo repetido.</response>
+        // POST /periodos
         [HttpPost]
+        [Authorize(Policy = Policies.Admin)]
         public async Task<ActionResult<PeriodoDTO>> CrearPeriodo([FromBody] PeriodoDTO dto)
         {
-            if (!User.EsAdmin()) return Forbid();
-
-            if (dto.Bimestre < 1 || dto.Bimestre > 4)
-                return BadRequest("El bimestre debe ser un número entre 1 y 4.");
-
-            if (dto.FechaFin <= dto.FechaInicio)
-                return BadRequest("La fecha de fin debe ser posterior a la de inicio.");
-
-            var existe = await _context.PeriodosBimestrales
-                .AnyAsync(p => p.CicloLectivo == dto.CicloLectivo && p.Bimestre == dto.Bimestre);
-            if (existe) return BadRequest("Ya existe ese bimestre para el ciclo lectivo.");
-
-            var datos = new PeriodoBimestral
-            {
-                CicloLectivo = dto.CicloLectivo,
-                Bimestre = dto.Bimestre,
-                FechaInicio = dto.FechaInicio,
-                FechaFin = dto.FechaFin
-            };
-
-            try
-            {
-                _context.PeriodosBimestrales.Add(datos);
-                await _context.SaveChangesAsync();
-            }
-            catch (Exception ex) when (PostgresErrores.EsErrorDeNegocio(ex))
-            {
-                return this.RespuestaDeError(ex);
-            }
-
-            dto.Id = datos.Id;  
-            return CreatedAtAction(nameof(BuscarPeriodo), new { id = datos.Id }, dto);
+            var creado = await _service.CrearAsync(dto);
+            return CreatedAtAction(nameof(BuscarPeriodo), new { id = creado.Id }, creado);
         }
 
+        /// <summary>Cambia las fechas de un periodo. Solo administradores.</summary>
+        /// <param name="id">Id del periodo.</param>
+        /// <param name="dto">Nuevas fechas.</param>
+        // PATCH /periodos/{id}
         [HttpPatch("{id}")]
+        [Authorize(Policy = Policies.Admin)]
         public async Task<IActionResult> ActualizarPeriodo(int id, [FromBody] ModificarPeriodoDTO dto)
         {
-            if (!User.EsAdmin()) return Forbid();
-
-            var periodo = await _context.PeriodosBimestrales.FindAsync(id);
-            if (periodo == null) return NotFound($"No se encontró el período {id}");
-
-            if (dto.FechaInicio.HasValue) periodo.FechaInicio = dto.FechaInicio.Value;
-            if (dto.FechaFin.HasValue) periodo.FechaFin = dto.FechaFin.Value;
-
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (Exception ex) when (PostgresErrores.EsErrorDeNegocio(ex))
-            {
-                return this.RespuestaDeError(ex);
-            }
-
+            await _service.ActualizarAsync(id, dto);
             return NoContent();
         }
 
+        /// <summary>Elimina un periodo. Solo administradores.</summary>
+        /// <param name="id">Id del periodo.</param>
+        // DELETE /periodos/{id}
         [HttpDelete("{id}")]
+        [Authorize(Policy = Policies.Admin)]
         public async Task<IActionResult> EliminarPeriodo(int id)
         {
-            if (!User.EsAdmin()) return Forbid();
-
-            var periodo = await _context.PeriodosBimestrales.FindAsync(id);
-            if (periodo == null) return NotFound();
-
-            try
-            {
-                _context.PeriodosBimestrales.Remove(periodo);
-                await _context.SaveChangesAsync();
-            }
-            catch (Exception ex) when (PostgresErrores.EsErrorDeNegocio(ex))
-            {
-                return this.RespuestaDeError(ex);
-            }
-
+            await _service.EliminarAsync(id);
             return NoContent();
-        }
-
-        private static PeriodoDTO MapearDTO(PeriodoBimestral p)
-        {
-            return new PeriodoDTO
-            {
-                Id = p.Id,
-                CicloLectivo = p.CicloLectivo,
-                Bimestre = p.Bimestre,
-                FechaInicio = p.FechaInicio,
-                FechaFin = p.FechaFin
-            };
         }
     }
 }

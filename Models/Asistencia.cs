@@ -1,8 +1,9 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Plataforma24API.Models
 {
+    /// <summary>Planilla de asistencia de un curso para un dia. Una vez cerrada no admite marcas.</summary>
     [Table("asistencias")]
     public class Asistencia
     {

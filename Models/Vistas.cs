@@ -1,8 +1,8 @@
-﻿using System.ComponentModel.DataAnnotations.Schema;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Plataforma24API.Models
 {
-
+    /// <summary>Vista <c>v_boletin_resumen</c>: totales de un boletin (promedio, notas cargadas, inasistencias).</summary>
     public class VBoletinResumen
     {
         [Column("id_boletin")] public int IdBoletin { get; set; }
@@ -23,6 +23,7 @@ namespace Plataforma24API.Models
         [Column("fecha_publicacion")] public DateTime? FechaPublicacion { get; set; }
     }
 
+    /// <summary>Vista <c>v_boletin_detalle</c>: una fila por materia de cada boletin.</summary>
     public class VBoletinDetalle
     {
         [Column("id_boletin")] public int IdBoletin { get; set; }
@@ -44,6 +45,7 @@ namespace Plataforma24API.Models
         [Column("fecha_carga")] public DateTime? FechaCarga { get; set; }
     }
 
+    /// <summary>Vista <c>v_inasistencias_periodo</c>: inasistencias por alumno y bimestre.</summary>
     public class VInasistenciaPeriodo
     {
         [Column("id_alumno")] public int IdAlumno { get; set; }
@@ -58,6 +60,7 @@ namespace Plataforma24API.Models
         [Column("dias_registrados")] public long DiasRegistrados { get; set; }
     }
 
+    /// <summary>Vista <c>v_inasistencias_anuales</c>: inasistencias por alumno y ciclo lectivo.</summary>
     public class VInasistenciaAnual
     {
         [Column("id_alumno")] public int IdAlumno { get; set; }
@@ -69,7 +72,7 @@ namespace Plataforma24API.Models
         [Column("dias_registrados")] public long DiasRegistrados { get; set; }
     }
 
-
+    /// <summary>Vista <c>v_foro_temas</c>: tema con su autor, cantidad de mensajes y ultimo mensaje.</summary>
     public class VForoTema
     {
         [Column("id")] public int Id { get; set; }
@@ -84,6 +87,7 @@ namespace Plataforma24API.Models
         [Column("ultimo_mensaje")] public DateTime? UltimoMensaje { get; set; }
     }
 
+    /// <summary>Vista <c>v_foro_mensajes</c>: mensaje con su autor y reportes pendientes.</summary>
     public class VForoMensaje
     {
         [Column("id")] public int Id { get; set; }

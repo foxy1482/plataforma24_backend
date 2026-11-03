@@ -1,14 +1,15 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace Plataforma24API.DTOs.Auth
 {
+    /// <summary>Credenciales para iniciar sesion.</summary>
     public class LoginDTO
     {
         [Required]
         [EmailAddress]
-        public string Email { get; set; }
+        public required string Email { get; set; }
 
         [Required]
-        public string Password { get; set; }
+        public required string Password { get; set; }
     }
 }

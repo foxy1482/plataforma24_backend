@@ -1,8 +1,9 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Plataforma24API.Models
 {
+    /// <summary>Asistencia de un alumno dentro de una planilla.</summary>
     [Table("asistencia_detalle")]
     public class AsistenciaDetalle
     {

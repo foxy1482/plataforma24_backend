@@ -1,306 +1,142 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Plataforma24API.Auth;
-using Plataforma24API.Data;
 using Plataforma24API.DTOs.Foro;
-using Plataforma24API.Models;
+using Plataforma24API.Infrastructure.Security;
+using Plataforma24API.Services.Interfaces;
 
 namespace Plataforma24API.Controllers
 {
+    /// <summary>Temas, mensajes y reportes del foro.</summary>
     [ApiController]
     [Route("foro")]
     [Authorize]
     public class ForoController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly IForoService _service;
 
-        public ForoController(AppDbContext context)
+        public ForoController(IForoService service)
         {
-            _context = context;
+            _service = service;
         }
 
-        private bool EsModerador()
-        {
-            return User.EsPersonal();
-        }
-
-        private async Task<int?> ObtenerMiCursoAsync()
-        {
-            int idUsuario = User.GetUserId()!.Value;
-
-            return await _context.Usuarios
-                .Where(u => u.Id == idUsuario)
-                .Select(u => u.IdCurso)
-                .FirstOrDefaultAsync();
-        }
-
-        private async Task<bool> PuedeVerTemaAsync(int? idCursoDelTema)
-        {
-            if (EsModerador() || idCursoDelTema == null) return true;
-
-            var miCurso = await ObtenerMiCursoAsync();
-            return miCurso == idCursoDelTema;
-        }
-
-
+        /// <summary>Lista los temas visibles para el usuario: generales y de su curso (el personal ve todos).</summary>
+        /// <param name="idCurso">Limita a los temas de ese curso.</param>
+        // GET /foro/temas?idCurso={id}
         [HttpGet("temas")]
-        public async Task<ActionResult<IEnumerable<VForoTema>>> ListarTemas([FromQuery] int? idCurso)
+        public async Task<ActionResult<IEnumerable<ForoTemaDTO>>> ListarTemas([FromQuery] int? idCurso)
         {
-            var cons = _context.VForoTemas.AsQueryable();
-
-            if (idCurso.HasValue)
-            {
-                cons = cons.Where(t => t.IdCurso == idCurso.Value);
-            }
-
-            if (!EsModerador())
-            {
-                var miCurso = await ObtenerMiCursoAsync();
-                cons = cons.Where(t => t.IdCurso == null || t.IdCurso == miCurso);
-            }
-
-            var temas = await cons
-                .OrderByDescending(t => t.Fijado)
-                .ThenByDescending(t => t.UltimoMensaje ?? t.FechaCreacion)
-                .ToListAsync();
-
-            return Ok(temas);
+            return Ok(await _service.ListarTemasAsync(idCurso));
         }
 
+        /// <summary>Abre un tema nuevo, con un primer mensaje opcional.</summary>
+        /// <param name="dto">Titulo, curso y primer mensaje.</param>
+        /// <response code="201">Id del tema creado.</response>
+        /// <response code="422">El texto contiene una palabra bloqueada.</response>
+        // POST /foro/temas
         [HttpPost("temas")]
         public async Task<IActionResult> CrearTema([FromBody] CrearTemaDTO dto)
         {
-            int idUsuario = User.GetUserId()!.Value;
-
-            var tema = new ForoTema
-            {
-                IdCurso = dto.IdCurso,
-                IdAutor = idUsuario,
-                Titulo = dto.Titulo
-            };
-
-            await using var tx = await _context.Database.BeginTransactionAsync();
-
-            try
-            {
-                _context.ForoTemas.Add(tema);
-                await _context.SaveChangesAsync();
-
-                if (!string.IsNullOrWhiteSpace(dto.PrimerMensaje))
-                {
-                    _context.ForoMensajes.Add(new ForoMensaje
-                    {
-                        IdTema = tema.Id,
-                        IdAutor = idUsuario,
-                        Contenido = dto.PrimerMensaje
-                    });
-                    await _context.SaveChangesAsync();
-                }
-
-                await tx.CommitAsync();
-            }
-            catch (Exception ex) when (PostgresErrores.EsErrorDeNegocio(ex))
-            {
-                return this.RespuestaDeError(ex);
-            }
-
-            return CreatedAtAction(nameof(ListarMensajes), new { idTema = tema.Id }, new { id = tema.Id });
+            var id = await _service.CrearTemaAsync(dto);
+            return CreatedAtAction(nameof(ListarMensajes), new { idTema = id }, new { id });
         }
 
+        /// <summary>Fija o cierra un tema. Solo personal.</summary>
+        /// <param name="idTema">Id del tema.</param>
+        /// <param name="dto">Acciones de moderacion.</param>
+        // PATCH /foro/temas/{idTema}
         [HttpPatch("temas/{idTema}")]
+        [Authorize(Policy = Policies.Personal)]
         public async Task<IActionResult> ModerarTema(int idTema, [FromBody] ModificarTemaDTO dto)
         {
-            if (!EsModerador()) return Forbid();
-
-            var tema = await _context.ForoTemas.FindAsync(idTema);
-            if (tema == null || tema.Eliminado) return NotFound();
-
-            if (dto.Fijado.HasValue) tema.Fijado = dto.Fijado.Value;
-            if (dto.Cerrado.HasValue) tema.Cerrado = dto.Cerrado.Value;
-
-            await _context.SaveChangesAsync();
+            await _service.ModerarTemaAsync(idTema, dto);
             return NoContent();
         }
 
-
+        /// <summary>Elimina un tema. Puede hacerlo su autor o el personal.</summary>
+        /// <param name="idTema">Id del tema.</param>
+        // DELETE /foro/temas/{idTema}
         [HttpDelete("temas/{idTema}")]
         public async Task<IActionResult> EliminarTema(int idTema)
         {
-            var tema = await _context.ForoTemas.FindAsync(idTema);
-            if (tema == null) return NotFound();
-            if (tema.Eliminado) return NoContent();
-
-            int idUsuario = User.GetUserId()!.Value;
-            if (tema.IdAutor != idUsuario && !EsModerador()) return Forbid();
-
-            tema.Eliminado = true;
-            tema.IdEliminadoPor = idUsuario;  
-
-            await _context.SaveChangesAsync();
+            await _service.EliminarTemaAsync(idTema);
             return NoContent();
         }
 
-
+        /// <summary>Lista los mensajes de un tema en orden cronologico.</summary>
+        /// <param name="idTema">Id del tema.</param>
+        // GET /foro/temas/{idTema}/mensajes
         [HttpGet("temas/{idTema}/mensajes")]
-        public async Task<ActionResult<IEnumerable<VForoMensaje>>> ListarMensajes(int idTema)
+        public async Task<ActionResult<IEnumerable<ForoMensajeDTO>>> ListarMensajes(int idTema)
         {
-            var tema = await _context.ForoTemas.FindAsync(idTema);
-            if (tema == null || (tema.Eliminado && !EsModerador())) return NotFound();
-
-            if (!await PuedeVerTemaAsync(tema.IdCurso)) return Forbid();
-
-            var mensajes = await _context.VForoMensajes
-                .Where(m => m.IdTema == idTema)
-                .OrderBy(m => m.FechaPublicacion)
-                .ToListAsync();
-
-            return Ok(mensajes);
+            return Ok(await _service.ListarMensajesAsync(idTema));
         }
 
+        /// <summary>Publica un mensaje en un tema.</summary>
+        /// <param name="idTema">Id del tema.</param>
+        /// <param name="dto">Contenido y mensaje al que responde, si corresponde.</param>
+        /// <response code="201">Id del mensaje creado.</response>
+        /// <response code="409">El tema esta cerrado.</response>
+        /// <response code="422">El texto contiene una palabra bloqueada.</response>
+        // POST /foro/temas/{idTema}/mensajes
         [HttpPost("temas/{idTema}/mensajes")]
         public async Task<IActionResult> CrearMensaje(int idTema, [FromBody] CrearMensajeDTO dto)
         {
-            var tema = await _context.ForoTemas.FindAsync(idTema);
-            if (tema == null) return NotFound();
-
-            if (!await PuedeVerTemaAsync(tema.IdCurso)) return Forbid();
-
-            var mensaje = new ForoMensaje
-            {
-                IdTema = idTema,
-                IdAutor = User.GetUserId()!.Value,
-                IdRespuestaA = dto.IdRespuestaA,
-                Contenido = dto.Contenido
-            };
-
-            try
-            {
-                _context.ForoMensajes.Add(mensaje);
-                await _context.SaveChangesAsync();
-            }
-            catch (Exception ex) when (PostgresErrores.EsErrorDeNegocio(ex))
-            {
-
-                return this.RespuestaDeError(ex);
-            }
-
-            return CreatedAtAction(nameof(ListarMensajes), new { idTema }, new { id = mensaje.Id });
+            var id = await _service.CrearMensajeAsync(idTema, dto);
+            return CreatedAtAction(nameof(ListarMensajes), new { idTema }, new { id });
         }
 
+        /// <summary>Edita un mensaje propio.</summary>
+        /// <param name="idMensaje">Id del mensaje.</param>
+        /// <param name="dto">Nuevo contenido.</param>
+        // PATCH /foro/mensajes/{idMensaje}
         [HttpPatch("mensajes/{idMensaje}")]
         public async Task<IActionResult> EditarMensaje(int idMensaje, [FromBody] ModificarMensajeDTO dto)
         {
-            var mensaje = await _context.ForoMensajes.FindAsync(idMensaje);
-            if (mensaje == null) return NotFound();
-
-            if (mensaje.IdAutor != User.GetUserId()) return Forbid();
-
-            mensaje.Contenido = dto.Contenido;  
-
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (Exception ex) when (PostgresErrores.EsErrorDeNegocio(ex))
-            {
-                return this.RespuestaDeError(ex);
-            }
-
+            await _service.EditarMensajeAsync(idMensaje, dto);
             return NoContent();
         }
 
-
+        /// <summary>Elimina un mensaje. Puede hacerlo su autor o el personal.</summary>
+        /// <param name="idMensaje">Id del mensaje.</param>
+        // DELETE /foro/mensajes/{idMensaje}
         [HttpDelete("mensajes/{idMensaje}")]
         public async Task<IActionResult> EliminarMensaje(int idMensaje)
         {
-            var mensaje = await _context.ForoMensajes.FindAsync(idMensaje);
-            if (mensaje == null) return NotFound();
-            if (mensaje.Eliminado) return NoContent();
-
-            int idUsuario = User.GetUserId()!.Value;
-            if (mensaje.IdAutor != idUsuario && !EsModerador()) return Forbid();
-
-            mensaje.Eliminado = true;
-            mensaje.IdEliminadoPor = idUsuario;
-
-            await _context.SaveChangesAsync();
+            await _service.EliminarMensajeAsync(idMensaje);
             return NoContent();
         }
 
+        /// <summary>Reporta un mensaje para que lo revise moderacion.</summary>
+        /// <param name="idMensaje">Id del mensaje.</param>
+        /// <param name="dto">Motivo del reporte.</param>
+        /// <response code="200">Id del reporte creado.</response>
+        /// <response code="409">El usuario ya reporto ese mensaje.</response>
+        // POST /foro/mensajes/{idMensaje}/reportes
         [HttpPost("mensajes/{idMensaje}/reportes")]
         public async Task<IActionResult> ReportarMensaje(int idMensaje, [FromBody] CrearReporteDTO dto)
         {
-            var mensaje = await _context.ForoMensajes.FindAsync(idMensaje);
-            if (mensaje == null) return NotFound();
-
-            var tema = await _context.ForoTemas.FindAsync(mensaje.IdTema);
-            if (tema == null || !await PuedeVerTemaAsync(tema.IdCurso)) return NotFound();
-
-            var reporte = new ForoReporte
-            {
-                IdMensaje = idMensaje,
-                IdReportante = User.GetUserId()!.Value,
-                Motivo = dto.Motivo
-            };
-
-            try
-            {
-                _context.ForoReportes.Add(reporte);
-                await _context.SaveChangesAsync();
-            }
-            catch (Exception ex) when (PostgresErrores.Buscar(ex)?.SqlState == "23505")
-            {
-
-                return Conflict(new { mensaje = "Ya reportaste este mensaje." });
-            }
-
-            return Ok(new { id = reporte.Id });
+            var id = await _service.ReportarMensajeAsync(idMensaje, dto);
+            return Ok(new { id });
         }
 
+        /// <summary>Lista los reportes con su mensaje. Solo personal.</summary>
+        /// <param name="pendientes">Si es <c>false</c>, incluye tambien los resueltos.</param>
+        // GET /foro/reportes?pendientes=false
         [HttpGet("reportes")]
+        [Authorize(Policy = Policies.Personal)]
         public async Task<ActionResult<IEnumerable<ReporteDTO>>> ListarReportes([FromQuery] bool pendientes = true)
         {
-            if (!EsModerador()) return Forbid();
-
-            var cons = _context.ForoReportes.AsQueryable();
-
-            if (pendientes)
-            {
-                cons = cons.Where(r => !r.Resuelto);
-            }
-
-            var reportes = await (from r in cons
-                                  join m in _context.ForoMensajes on r.IdMensaje equals m.Id
-                                  orderby r.Fecha descending
-                                  select new ReporteDTO
-                                  {
-                                      Id = r.Id,
-                                      IdMensaje = r.IdMensaje,
-                                      ContenidoMensaje = m.Contenido,
-                                      IdAutorMensaje = m.IdAutor,
-                                      IdReportante = r.IdReportante,
-                                      Motivo = r.Motivo,
-                                      Fecha = r.Fecha,
-                                      Resuelto = r.Resuelto,
-                                      IdResueltoPor = r.IdResueltoPor
-                                  }).ToListAsync();
-
-            return Ok(reportes);
+            return Ok(await _service.ListarReportesAsync(pendientes));
         }
 
+        /// <summary>Marca un reporte como resuelto. Solo personal.</summary>
+        /// <param name="idReporte">Id del reporte.</param>
+        // PATCH /foro/reportes/{idReporte}/resolver
         [HttpPatch("reportes/{idReporte}/resolver")]
+        [Authorize(Policy = Policies.Personal)]
         public async Task<IActionResult> ResolverReporte(int idReporte)
         {
-            if (!EsModerador()) return Forbid();
-
-            var reporte = await _context.ForoReportes.FindAsync(idReporte);
-            if (reporte == null) return NotFound();
-
-            reporte.Resuelto = true;
-            reporte.IdResueltoPor = User.GetUserId();
-
-            await _context.SaveChangesAsync();
+            await _service.ResolverReporteAsync(idReporte);
             return NoContent();
         }
     }

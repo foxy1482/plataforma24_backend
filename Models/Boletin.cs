@@ -1,8 +1,9 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Plataforma24API.Models
 {
+    /// <summary>Boletin de un alumno para un bimestre. Solo los publicados son visibles para el alumno.</summary>
     [Table("boletines")]
     public class Boletin
     {
@@ -31,7 +32,7 @@ namespace Plataforma24API.Models
         [Column("fecha_creacion")]
         public DateTime FechaCreacion { get; set; }
 
-        // La completa el trigger al publicar
+        /// <summary>La completa un trigger de la base de datos al publicar el boletin.</summary>
         [Column("fecha_publicacion")]
         public DateTime? FechaPublicacion { get; set; }
     }

@@ -1,8 +1,9 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Plataforma24API.DTOs.Usuarios
 {
+    /// <summary>Cuenta de usuario; nunca incluye la contrasena.</summary>
     public class UsuarioDTO
     {
         public int Id { get; set; }

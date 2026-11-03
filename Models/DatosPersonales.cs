@@ -1,8 +1,9 @@
-﻿using System.ComponentModel.DataAnnotations.Schema;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.ComponentModel.DataAnnotations;
 
 namespace Plataforma24API.Models
 {
+    /// <summary>Datos personales de un usuario, separados de la cuenta de acceso.</summary>
     [Table("datos_personales", Schema = "public")]
     public class DatosPersonales
     {

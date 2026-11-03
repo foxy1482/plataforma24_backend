@@ -1,105 +1,72 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Plataforma24API.Data;
-using Plataforma24API.DTOs.Rol;
-using Plataforma24API.Auth;
-using Plataforma24API.Models;
-using System.Text.RegularExpressions;
+using Plataforma24API.DTOs.Roles;
+using Plataforma24API.Infrastructure.Security;
+using Plataforma24API.Services.Interfaces;
 
 namespace Plataforma24API.Controllers
 {
+    /// <summary>Administracion de roles. Todo el controlador es solo para administradores.</summary>
     [ApiController]
     [Route("roles")]
-    [Authorize]
+    [Authorize(Policy = Policies.Admin)]
     public class RolesController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly IRolService _service;
 
-        public RolesController(AppDbContext context)
+        public RolesController(IRolService service)
         {
-            _context = context;
+            _service = service;
         }
 
+        /// <summary>Lista los roles.</summary>
+        // GET /roles
         [HttpGet]
         public async Task<ActionResult<IEnumerable<RolDTO>>> ListarRoles()
         {
-            if (!User.EsAdmin()) return Forbid();
-
-            return await _context.Roles.
-                Select(r => new RolDTO
-                {
-                    Id = r.Id,
-                    Nombre = r.Nombre,
-                    PrefijoLegajo = r.PrefijoLegajo
-                }).ToListAsync();
+            return Ok(await _service.ListarAsync());
         }
 
+        /// <summary>Devuelve un rol.</summary>
+        /// <param name="id">Id del rol.</param>
+        /// <response code="404">El rol no existe.</response>
+        // GET /roles/{id}
         [HttpGet("{id}")]
         public async Task<ActionResult<RolDTO>> BuscarRol(int id)
         {
-            if (!User.EsAdmin()) return Forbid();
-
-            var r = await _context.Roles.FindAsync(id);
-            if (r == null) return NotFound();
-
-            return Ok(new RolDTO
-            {
-                Id = r.Id,
-                Nombre = r.Nombre,
-                PrefijoLegajo = r.PrefijoLegajo
-            });
+            return Ok(await _service.BuscarAsync(id));
         }
 
+        /// <summary>Crea un rol.</summary>
+        /// <param name="dto">Nombre y prefijo de legajo (3 letras mayusculas).</param>
+        /// <response code="201">Rol creado.</response>
+        /// <response code="400">Prefijo invalido o nombre repetido.</response>
+        // POST /roles
         [HttpPost]
         public async Task<ActionResult<RolDTO>> CrearRol([FromBody] RolDTO dto)
         {
-            if (!User.EsAdmin()) return Forbid("No tienes permisos para realizar esta acción.");
-
-            if (string.IsNullOrWhiteSpace(dto.PrefijoLegajo) || !Regex.IsMatch(dto.PrefijoLegajo, "^[A-Z]{3}$"))
-                return BadRequest("El prefijo de legajo debe tener exactamente 3 letras mayúsculas.");
-
-            var existe = await _context.Roles.AnyAsync(r => r.Nombre == dto.Nombre);
-            if (existe) return BadRequest("Ya existe un rol con el mismo nombre.");
-
-            var datos = new Rol
-            {
-                Nombre = dto.Nombre,
-                PrefijoLegajo = dto.PrefijoLegajo
-            };
-
-            _context.Roles.Add(datos);
-            await _context.SaveChangesAsync();
-
-            dto.Id = datos.Id;   
-            return CreatedAtAction(nameof(BuscarRol), new { id = datos.Id }, dto);
+            var creado = await _service.CrearAsync(dto);
+            return CreatedAtAction(nameof(BuscarRol), new { id = creado.Id }, creado);
         }
 
+        /// <summary>Cambia el nombre de un rol.</summary>
+        /// <param name="id">Id del rol.</param>
+        /// <param name="dto">Campos a modificar.</param>
+        // PATCH /roles/{id}
         [HttpPatch("{id}")]
         public async Task<IActionResult> ActualizarRol(int id, [FromBody] ModificarRolDTO dto)
         {
-            if (!User.EsAdmin()) return Forbid();
-
-            var datos = await _context.Roles.FindAsync(id);
-            if (datos == null) return NotFound();
-
-            if (dto.Nombre != null) datos.Nombre = dto.Nombre;
-
-            await _context.SaveChangesAsync();
+            await _service.ActualizarAsync(id, dto);
             return NoContent();
         }
 
+        /// <summary>Elimina un rol.</summary>
+        /// <param name="id">Id del rol.</param>
+        // DELETE /roles/{id}
         [HttpDelete("{id}")]
         public async Task<IActionResult> EliminarRol(int id)
         {
-            if (!User.EsAdmin()) return Forbid();
-
-            var datos = await _context.Roles.FindAsync(id);
-            if (datos == null) return NotFound();
-
-            _context.Roles.Remove(datos);
-            await _context.SaveChangesAsync();
-
+            await _service.EliminarAsync(id);
             return NoContent();
         }
     }

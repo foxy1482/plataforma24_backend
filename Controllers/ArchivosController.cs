@@ -1,251 +1,115 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Plataforma24API.Auth;
-using Plataforma24API.Data;
 using Plataforma24API.DTOs.Archivos;
-using Plataforma24API.DTOs.Tareas;
-using Plataforma24API.Models;
+using Plataforma24API.Infrastructure.Security;
+using Plataforma24API.Services.Interfaces;
 
 namespace Plataforma24API.Controllers
 {
+    /// <summary>Subida, descarga y administracion de archivos.</summary>
     [ApiController]
     [Route("archivos")]
     [Authorize]
     public class ArchivosController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly IArchivoService _service;
 
-        public ArchivosController(AppDbContext context)
+        public ArchivosController(IArchivoService service)
         {
-            _context = context;
+            _service = service;
         }
 
-        // GET /archivos/
+        /// <summary>Lista los archivos, con filtros opcionales.</summary>
+        /// <param name="nombre">Nombre original exacto.</param>
+        /// <param name="idUsuario">Propietario del archivo.</param>
         // GET /archivos?nombre={nombre}&idUsuario={idUsuario}
         [HttpGet]
         public async Task<ActionResult<IEnumerable<ArchivoDTO>>> ListarArchivos(
             [FromQuery] string? nombre,
-            [FromQuery] int? idUsuario
-            )
+            [FromQuery] int? idUsuario)
         {
-            var cons = _context.Archivos.AsQueryable();
-
-            if (nombre != null)
-            {
-                cons = cons.Where(arc => arc.NombreOriginal == nombre);
-            }
-
-            if (idUsuario.HasValue)
-            {
-                cons = cons.Where(arc => arc.IdUsuario == idUsuario.Value);
-            }
-
-            var resultados = await cons.ToListAsync();
-
-            return Ok(resultados.Select(arc => MapearDTO(arc)));
+            return Ok(await _service.ListarAsync(nombre, idUsuario));
         }
 
+        /// <summary>Devuelve los metadatos de un archivo.</summary>
+        /// <param name="id">Id del archivo.</param>
+        /// <response code="404">El archivo no existe.</response>
         // GET /archivos/{id}
         [HttpGet("{id}")]
         public async Task<ActionResult<ArchivoDTO>> BuscarArchivo(int id)
         {
-            var a = await _context.Archivos.FindAsync(id);
-            if (a == null) return NotFound();
-
-            return Ok(MapearDTO(a));
+            return Ok(await _service.BuscarAsync(id));
         }
 
-        // POST /archivos/
+        /// <summary>Sube un archivo. El propietario es el usuario del token.</summary>
+        /// <param name="archivo">Archivo enviado como multipart/form-data.</param>
+        /// <param name="ruta">Subcarpeta opcional donde guardarlo.</param>
+        /// <response code="201">Archivo guardado.</response>
+        /// <response code="400">Archivo vacio o subcarpeta invalida.</response>
+        // POST /archivos?ruta={subcarpeta}
         [HttpPost]
         [Consumes("multipart/form-data")]
-        public async Task<ActionResult<ArchivoDTO>> SubirArchivo(IFormFile archivo, [FromQuery] string? ruta) // El id del usuario sale del token
+        public async Task<ActionResult<ArchivoDTO>> SubirArchivo(IFormFile archivo, [FromQuery] string? ruta)
         {
-            if (archivo == null || archivo.Length == 0) return BadRequest("Archivo no seleccionado");
+            await using var contenido = archivo.OpenReadStream();
 
-            // Sacamos el id del usuario actual del token
-            int idUsuario = User.GetUserId()!.Value;
-
-            string subCarpeta = ruta ?? "";
-            var carpetaDestino = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", subCarpeta);
-
-            if (!Directory.Exists(carpetaDestino)) Directory.CreateDirectory(carpetaDestino);
-
-            Guid guid = Guid.NewGuid();
-            var nombreUnico = $"{guid}_{archivo.FileName}";
-            var rutaCompletaDisco = Path.Combine(carpetaDestino, nombreUnico);
-
-            using (var stream = new FileStream(rutaCompletaDisco, FileMode.Create))
+            var creado = await _service.SubirAsync(new ArchivoParaSubir
             {
-                await archivo.CopyToAsync(stream);
-            }
-
-            var rutaFinal = Path.Combine(subCarpeta, nombreUnico);
-
-            var datos = new Archivo
-            {
+                Contenido = contenido,
                 NombreOriginal = archivo.FileName,
-                GuidArchivo = guid,
-                Ruta = rutaFinal, // <--- Guardamos "subcarpeta/guid_archivo.jpg"
                 Tipo = archivo.ContentType,
-                FechaSubida = DateTime.UtcNow,
-                IdUsuario = idUsuario
-            };
+                Longitud = archivo.Length,
+                Subcarpeta = ruta
+            });
 
-            _context.Archivos.Add(datos);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction(nameof(BuscarArchivo), new { id = datos.Id }, MapearDTO(datos));
+            return CreatedAtAction(nameof(BuscarArchivo), new { id = creado.Id }, creado);
         }
 
+        /// <summary>Descarga un archivo como adjunto.</summary>
+        /// <param name="id">Id del archivo.</param>
+        /// <response code="403">El usuario no tiene permiso para verlo.</response>
+        /// <response code="404">No existe el registro o el archivo fisico.</response>
         // GET /archivos/descargar/{id}
         [HttpGet("descargar/{id}")]
         public async Task<IActionResult> DescargarArchivo(int id)
         {
-            var registro = await _context.Archivos.FindAsync(id);
-            if (registro == null) return NotFound("El archivo no existe en la base de datos.");
-
-            var dueño = await _context.Usuarios.FindAsync(registro.IdUsuario);
-            if (dueño == null) return NotFound("Dueño del archivo no encontrado.");
-
-            var miId = User.GetUserId();
-            var miRol = User.GetRol();
-
-            // --- LÓGICA DE PERMISOS ---
-            bool tieneAcceso = false;
-
-            if (User.EsAdmin())
-            {
-                tieneAcceso = true; // Admin ve todo
-            }
-            else if (User.EsProfe())
-            {
-                if (dueño.IdRol < 2) tieneAcceso = true;
-                if (registro.IdUsuario == miId) tieneAcceso = true;
-            }
-            else
-            {
-                if (registro.IdUsuario == miId) tieneAcceso = true;
-            }
-
-            if (!tieneAcceso) return Forbid("No tenés permiso para ver este archivo.");
-
-            var rutaCarpeta = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
-            var rutaCompleta = Path.Combine(rutaCarpeta, registro.Ruta);
-
-            // 3. Verificar si el archivo existe realmente en el disco
-            if (!System.IO.File.Exists(rutaCompleta))
-                return NotFound("El archivo físico fue eliminado o movido.");
-
-            // 4. Determinar el tipo de contenido (MIME Type)
-            // registro.Tipo ya lo guardamos al subir (ej: application/pdf)
-
-            var bytes = await System.IO.File.ReadAllBytesAsync(rutaCompleta);
-
-            // 5. Devolver el archivo con su nombre original
-            return File(bytes, registro.Tipo, registro.NombreOriginal);
+            var archivo = await _service.ObtenerContenidoAsync(id);
+            return File(archivo.Contenido, archivo.Tipo, archivo.NombreOriginal);
         }
 
-        // PATCH /archivos/{id}
-        [HttpPatch("{id}")]
-        public async Task<IActionResult> ActualizarMetadatos(int id, [FromBody] ModificarArchivoDTO dto)
-        {
-            if (!User.EsAdmin()) return Forbid();
-
-            var archivo = await _context.Archivos.FindAsync(id);
-            if (archivo == null) return NotFound();
-
-            if (!string.IsNullOrEmpty(dto.NombreOriginal))
-            {
-                archivo.NombreOriginal = dto.NombreOriginal;
-            }
-
-            if (dto.IdUsuario.HasValue)
-            {
-                archivo.IdUsuario = dto.IdUsuario.Value;
-            }
-
-            await _context.SaveChangesAsync();
-            return NoContent();
-        }
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> EliminarArchivo(int id)
-        {
-            if (!User.EsAdmin()) return Forbid();
-
-            var registro = await _context.Archivos.FindAsync(id);
-            if (registro == null) return NotFound();
-
-            var rutaCarpeta = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
-            var rutaCompleta = Path.Combine(rutaCarpeta, registro.Ruta);
-
-            try
-            {
-                if (System.IO.File.Exists(rutaCompleta))
-                {
-                    System.IO.File.Delete(rutaCompleta);
-                }
-            }
-            catch (IOException ex)
-            {
-                return StatusCode(500, "El archivo está en uso y no se pudo eliminar del disco.");
-            }
-
-            _context.Archivos.Remove(registro);
-            await _context.SaveChangesAsync();
-
-            return NoContent();
-        }
+        /// <summary>Muestra un archivo en linea; admite lectura parcial (por ejemplo, video).</summary>
+        /// <param name="id">Id del archivo.</param>
+        /// <response code="403">El usuario no tiene permiso para verlo.</response>
+        /// <response code="404">No existe el registro o el archivo fisico.</response>
+        // GET /archivos/ver/{id}
         [HttpGet("ver/{id}")]
         public async Task<IActionResult> VerArchivo(int id)
         {
-            var registro = await _context.Archivos.FindAsync(id);
-            if (registro == null) return NotFound();
-
-            var dueño = await _context.Usuarios.FindAsync(registro.IdUsuario);
-            if (dueño == null) return NotFound("Dueño del archivo no encontrado.");
-
-            var miId = User.GetUserId();
-            var miRol = User.GetRol();
-
-            bool tieneAcceso = false;
-
-            if (User.EsAdmin())
-            {
-                tieneAcceso = true; 
-            }
-            else if (User.EsProfe())
-            {
-                if (dueño.IdRol < 2) tieneAcceso = true;
-                if (registro.IdUsuario == miId) tieneAcceso = true;
-            }
-            else
-            {
-                if (registro.IdUsuario == miId) tieneAcceso = true;
-            }
-
-            if (!tieneAcceso) return Forbid("No tenés permiso para ver este archivo.");
-
-            var rutaCompleta = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", registro.Ruta);
-            if (!System.IO.File.Exists(rutaCompleta)) return NotFound();
-
-            var fileStream = new FileStream(rutaCompleta, FileMode.Open, FileAccess.Read);
-
-            return File(fileStream, registro.Tipo, enableRangeProcessing: true);
+            var archivo = await _service.ObtenerContenidoAsync(id);
+            return File(archivo.Contenido, archivo.Tipo, enableRangeProcessing: true);
         }
 
-        private static ArchivoDTO MapearDTO(Archivo a)
+        /// <summary>Corrige los metadatos de un archivo. Solo administradores.</summary>
+        /// <param name="id">Id del archivo.</param>
+        /// <param name="dto">Campos a modificar.</param>
+        // PATCH /archivos/{id}
+        [HttpPatch("{id}")]
+        [Authorize(Policy = Policies.Admin)]
+        public async Task<IActionResult> ActualizarMetadatos(int id, [FromBody] ModificarArchivoDTO dto)
         {
-            return new ArchivoDTO
-            {
-                Id = a.Id,
-                NombreOriginal = a.NombreOriginal,
-                GuidArchivo = a.GuidArchivo,
-                Ruta = a.Ruta,
-                Tipo = a.Tipo,
-                FechaSubida = a.FechaSubida,
-                IdUsuario = a.IdUsuario,
-            };
+            await _service.ActualizarMetadatosAsync(id, dto);
+            return NoContent();
+        }
+
+        /// <summary>Elimina un archivo y su contenido fisico. Solo administradores.</summary>
+        /// <param name="id">Id del archivo.</param>
+        // DELETE /archivos/{id}
+        [HttpDelete("{id}")]
+        [Authorize(Policy = Policies.Admin)]
+        public async Task<IActionResult> EliminarArchivo(int id)
+        {
+            await _service.EliminarAsync(id);
+            return NoContent();
         }
     }
 }

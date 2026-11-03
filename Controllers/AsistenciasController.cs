@@ -1,223 +1,110 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Plataforma24API.Auth;
-using Plataforma24API.Data;
 using Plataforma24API.DTOs.Asistencias;
-using Plataforma24API.Models;
+using Plataforma24API.Infrastructure.Security;
+using Plataforma24API.Services.Interfaces;
 
 namespace Plataforma24API.Controllers
 {
+    /// <summary>Planillas de asistencia por curso y resumen de inasistencias por alumno.</summary>
     [ApiController]
     [Route("asistencias")]
     [Authorize]
     public class AsistenciasController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly IAsistenciaService _service;
 
-        public AsistenciasController(AppDbContext context)
+        public AsistenciasController(IAsistenciaService service)
         {
-            _context = context;
+            _service = service;
         }
 
+        /// <summary>Abre la planilla de un curso para una fecha. Administradores y preceptores.</summary>
+        /// <param name="dto">Curso y fecha.</param>
+        /// <response code="200">Id de la planilla abierta.</response>
+        // POST /asistencias/abrir
         [HttpPost("abrir")]
+        [Authorize(Policy = Policies.AdminOPreceptor)]
         public async Task<IActionResult> AbrirPlanilla([FromBody] AbrirAsistenciaDTO dto)
         {
-            if (!User.EsAdmin() && !User.EsPreceptor()) return Forbid();
-
-            int idUsuario = User.GetUserId()!.Value;
-
-            try
-            {
-                var idAsistencia = await _context.Database
-                    .SqlQuery<int>($"SELECT public.fn_abrir_asistencia({dto.IdCurso}, {dto.Fecha}, {idUsuario}) AS \"Value\"")
-                    .SingleAsync();
-
-                return Ok(new { idAsistencia });
-            }
-            catch (Exception ex) when (PostgresErrores.EsErrorDeNegocio(ex))
-            {
-                return this.RespuestaDeError(ex);
-            }
+            var idAsistencia = await _service.AbrirPlanillaAsync(dto);
+            return Ok(new { idAsistencia });
         }
 
+        /// <summary>Devuelve la planilla de un curso con el detalle de cada alumno. Solo personal.</summary>
+        /// <param name="idCurso">Id del curso.</param>
+        /// <param name="fecha">Dia consultado (aaaa-mm-dd); si se omite, hoy.</param>
+        /// <response code="404">No hay planilla abierta para ese curso y fecha.</response>
+        // GET /asistencias/curso/{idCurso}?fecha=2026-10-09
         [HttpGet("curso/{idCurso}")]
-        public async Task<ActionResult<PlanillaAsistenciaDTO>> ObtenerPlanilla(
-            int idCurso,
-            [FromQuery] DateOnly? fecha)
+        [Authorize(Policy = Policies.Personal)]
+        public async Task<ActionResult<PlanillaAsistenciaDTO>> ObtenerPlanilla(int idCurso, [FromQuery] DateOnly? fecha)
         {
-            if (!User.EsPersonal()) return Forbid();
-
-            var fechaConsulta = fecha ?? DateOnly.FromDateTime(DateTime.Today);
-
-            var planilla = await _context.Asistencias
-                .FirstOrDefaultAsync(a => a.IdCurso == idCurso && a.Fecha == fechaConsulta);
-            if (planilla == null)
-                return NotFound("No hay planilla abierta para ese curso y fecha. Usá POST /asistencias/abrir.");
-
-            var detalle = await (from d in _context.AsistenciaDetalles
-                                 where d.IdAsistencia == planilla.Id
-                                 join u in _context.Usuarios on d.IdAlumno equals u.Id
-                                 join dp in _context.DatosPersonales on u.Id equals dp.IdUsuario into dps
-                                 from dp in dps.DefaultIfEmpty()
-                                 orderby dp.Apellido, dp.Nombre
-                                 select new AsistenciaDetalleDTO
-                                 {
-                                     Id = d.Id,
-                                     IdAlumno = d.IdAlumno,
-                                     NumeroLegajo = u.NumeroLegajo,
-                                     Apellido = dp.Apellido,
-                                     Nombre = dp.Nombre,
-                                     Estado = d.Estado,
-                                     Observacion = d.Observacion
-                                 }).ToListAsync();
-
-            return Ok(new PlanillaAsistenciaDTO
-            {
-                Id = planilla.Id,
-                IdCurso = planilla.IdCurso,
-                Fecha = planilla.Fecha,
-                Cerrada = planilla.Cerrada,
-                IdRegistradoPor = planilla.IdRegistradoPor,
-                Observaciones = planilla.Observaciones,
-                Detalle = detalle
-            });
+            return Ok(await _service.ObtenerPlanillaAsync(idCurso, fecha));
         }
 
+        /// <summary>Lista las planillas de un curso en un rango de fechas. Solo personal.</summary>
+        /// <param name="idCurso">Id del curso.</param>
+        /// <param name="desde">Fecha inicial inclusive.</param>
+        /// <param name="hasta">Fecha final inclusive.</param>
+        // GET /asistencias/curso/{idCurso}/planillas?desde=2026-10-01&hasta=2026-10-31
         [HttpGet("curso/{idCurso}/planillas")]
+        [Authorize(Policy = Policies.Personal)]
         public async Task<ActionResult<IEnumerable<AsistenciaDTO>>> ListarPlanillas(
             int idCurso,
             [FromQuery] DateOnly? desde,
             [FromQuery] DateOnly? hasta)
         {
-            if (!User.EsPersonal()) return Forbid();
-
-            var cons = _context.Asistencias.Where(a => a.IdCurso == idCurso);
-
-            if (desde.HasValue) cons = cons.Where(a => a.Fecha >= desde.Value);
-            if (hasta.HasValue) cons = cons.Where(a => a.Fecha <= hasta.Value);
-
-            var resultados = await cons.OrderByDescending(a => a.Fecha).ToListAsync();
-
-            return Ok(resultados.Select(a => new AsistenciaDTO
-            {
-                Id = a.Id,
-                IdCurso = a.IdCurso,
-                Fecha = a.Fecha,
-                Cerrada = a.Cerrada,
-                IdRegistradoPor = a.IdRegistradoPor,
-                Observaciones = a.Observaciones
-            }));
+            return Ok(await _service.ListarPlanillasAsync(idCurso, desde, hasta));
         }
 
+        /// <summary>Marca la asistencia de uno o mas alumnos. Administradores y preceptores.</summary>
+        /// <param name="idAsistencia">Id de la planilla.</param>
+        /// <param name="cambios">Estado u observacion por alumno.</param>
+        /// <response code="409">La planilla esta cerrada.</response>
+        // PATCH /asistencias/{idAsistencia}/detalle
         [HttpPatch("{idAsistencia}/detalle")]
+        [Authorize(Policy = Policies.AdminOPreceptor)]
         public async Task<IActionResult> MarcarAsistencia(
             int idAsistencia,
             [FromBody] List<ModificarAsistenciaDetalleDTO> cambios)
         {
-            if (!User.EsAdmin() && !User.EsPreceptor()) return Forbid();
-
-            var planilla = await _context.Asistencias.FindAsync(idAsistencia);
-            if (planilla == null) return NotFound();
-
-            if (cambios == null || cambios.Count == 0)
-                return BadRequest("Enviá al menos un alumno para modificar.");
-
-            var idsAlumnos = cambios.Select(c => c.IdAlumno).ToList();
-
-            var detalles = await _context.AsistenciaDetalles
-                .Where(d => d.IdAsistencia == idAsistencia && idsAlumnos.Contains(d.IdAlumno))
-                .ToListAsync();
-
-            foreach (var cambio in cambios)
-            {
-                var det = detalles.FirstOrDefault(d => d.IdAlumno == cambio.IdAlumno);
-                if (det == null)
-                    return BadRequest($"El alumno {cambio.IdAlumno} no figura en esta planilla.");
-
-                if (cambio.Estado.HasValue) det.Estado = cambio.Estado.Value;
-                if (cambio.Observacion != null) det.Observacion = cambio.Observacion;
-            }
-
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (Exception ex) when (PostgresErrores.EsErrorDeNegocio(ex))
-            {
-
-                return this.RespuestaDeError(ex);
-            }
-
+            await _service.MarcarAsistenciaAsync(idAsistencia, cambios);
             return NoContent();
         }
 
+        /// <summary>Cierra, reabre o anota una planilla. Administradores y preceptores.</summary>
+        /// <param name="idAsistencia">Id de la planilla.</param>
+        /// <param name="dto">Campos a modificar.</param>
+        /// <response code="403">Solo administracion puede reabrir una planilla cerrada.</response>
+        // PATCH /asistencias/{idAsistencia}
         [HttpPatch("{idAsistencia}")]
+        [Authorize(Policy = Policies.AdminOPreceptor)]
         public async Task<IActionResult> ActualizarPlanilla(int idAsistencia, [FromBody] ModificarAsistenciaDTO dto)
         {
-            if (!User.EsAdmin() && !User.EsPreceptor()) return Forbid();
-
-            var planilla = await _context.Asistencias.FindAsync(idAsistencia);
-            if (planilla == null) return NotFound();
-
-            if (dto.Cerrada.HasValue)
-            {
-                if (planilla.Cerrada && !dto.Cerrada.Value && !User.EsAdmin())
-                    return Forbid();
-
-                planilla.Cerrada = dto.Cerrada.Value;
-            }
-
-            if (dto.Observaciones != null) planilla.Observaciones = dto.Observaciones;
-
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (Exception ex) when (PostgresErrores.EsErrorDeNegocio(ex))
-            {
-                return this.RespuestaDeError(ex);
-            }
-
+            await _service.ActualizarPlanillaAsync(idAsistencia, dto);
             return NoContent();
         }
 
+        /// <summary>Elimina una planilla. Solo administradores.</summary>
+        /// <param name="idAsistencia">Id de la planilla.</param>
+        // DELETE /asistencias/{idAsistencia}
         [HttpDelete("{idAsistencia}")]
+        [Authorize(Policy = Policies.Admin)]
         public async Task<IActionResult> EliminarPlanilla(int idAsistencia)
         {
-            if (!User.EsAdmin()) return Forbid();
-
-            var planilla = await _context.Asistencias.FindAsync(idAsistencia);
-            if (planilla == null) return NotFound();
-
-            _context.Asistencias.Remove(planilla); 
-            await _context.SaveChangesAsync();
-
+            await _service.EliminarPlanillaAsync(idAsistencia);
             return NoContent();
         }
 
+        /// <summary>Inasistencias de un alumno, anuales y por bimestre. Un alumno solo consulta las propias.</summary>
+        /// <param name="idAlumno">Id del alumno.</param>
+        /// <param name="ciclo">Ciclo lectivo; si se omite, todos.</param>
+        // GET /asistencias/alumno/{idAlumno}/resumen?ciclo={anio}
         [HttpGet("alumno/{idAlumno}/resumen")]
         public async Task<ActionResult<ResumenAsistenciaDTO>> ResumenAlumno(int idAlumno, [FromQuery] int? ciclo)
         {
-            if (!User.EsPersonal() && User.GetUserId() != idAlumno) return Forbid();
-
-            var anuales = _context.VInasistenciasAnuales.Where(a => a.IdAlumno == idAlumno);
-            var porBimestre = _context.VInasistenciasPeriodo.Where(p => p.IdAlumno == idAlumno);
-
-            if (ciclo.HasValue)
-            {
-                anuales = anuales.Where(a => a.CicloLectivo == ciclo.Value);
-                porBimestre = porBimestre.Where(p => p.CicloLectivo == ciclo.Value);
-            }
-
-            return Ok(new ResumenAsistenciaDTO
-            {
-                Anuales = await anuales.OrderBy(a => a.CicloLectivo).ToListAsync(),
-                PorBimestre = await porBimestre
-                    .OrderBy(p => p.CicloLectivo)
-                    .ThenBy(p => p.Bimestre)
-                    .ToListAsync()
-            });
+            return Ok(await _service.ResumenAlumnoAsync(idAlumno, ciclo));
         }
     }
 }

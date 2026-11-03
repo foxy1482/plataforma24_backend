@@ -1,117 +1,83 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Plataforma24API.Auth;
-using Plataforma24API.Data;
-using Plataforma24API.DTOs.Entrega;
-using Plataforma24API.Models;
+using Plataforma24API.DTOs.Entregas;
+using Plataforma24API.Infrastructure.Security;
+using Plataforma24API.Services.Interfaces;
 
 namespace Plataforma24API.Controllers
 {
+    /// <summary>Entregas de tareas realizadas por los alumnos.</summary>
     [ApiController]
     [Route("entregas")]
     [Authorize]
     public class EntregasController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly IEntregaService _service;
 
-        public EntregasController(AppDbContext context)
+        public EntregasController(IEntregaService service)
         {
-            _context = context;
+            _service = service;
         }
 
+        /// <summary>Lista las entregas de un alumno. Un alumno solo consulta las propias.</summary>
+        /// <param name="idUsuario">Id del alumno.</param>
+        // GET /entregas/alumno/{idUsuario}
         [HttpGet("alumno/{idUsuario}")]
-        public async Task<ActionResult<IEnumerable<Entrega>>> BuscarPorAlumno(int idUsuario)
+        public async Task<ActionResult<IEnumerable<EntregaRespuestaDTO>>> BuscarPorAlumno(int idUsuario)
         {
-            if (!User.TienePermiso(idUsuario)) return Forbid();
-
-            var entregas = await _context.Entregas
-                .Where(e => e.IdUsuario == idUsuario)
-                .ToListAsync();
-            return Ok(entregas);
+            return Ok(await _service.ListarPorAlumnoAsync(idUsuario));
         }
 
+        /// <summary>Lista las entregas de una tarea. Solo administradores.</summary>
+        /// <param name="idTarea">Id de la tarea.</param>
+        // GET /entregas/tarea/{idTarea}
         [HttpGet("tarea/{idTarea}")]
-        public async Task<ActionResult<IEnumerable<Entrega>>> ListarPorTarea(int idTarea)
+        [Authorize(Policy = Policies.Admin)]
+        public async Task<ActionResult<IEnumerable<EntregaRespuestaDTO>>> ListarPorTarea(int idTarea)
         {
-            if (!User.EsAdmin()) return Forbid();
-
-            var entregas = await _context.Entregas
-                .Where(e => e.IdTarea == idTarea)
-                .ToListAsync();
-            return Ok(entregas);
+            return Ok(await _service.ListarPorTareaAsync(idTarea));
         }
 
+        /// <summary>Lista las entregas de un alumno para las tareas de una materia.</summary>
+        /// <param name="idMateria">Id de la materia.</param>
+        /// <param name="idUsuario">Id del alumno.</param>
+        // GET /materias/{idMateria}/entregas/alumno/{idUsuario}
         [HttpGet("/materias/{idMateria}/entregas/alumno/{idUsuario}")]
-        public async Task<ActionResult<IEnumerable<Entrega>>> ListarPorMateriaYAlumno(int idMateria, int idUsuario)
+        public async Task<ActionResult<IEnumerable<EntregaRespuestaDTO>>> ListarPorMateriaYAlumno(int idMateria, int idUsuario)
         {
-            if (!User.TienePermiso(idUsuario)) return Forbid();
-
-            var entregas = await _context.Entregas
-                .Join(_context.Tareas,
-                    e => e.IdTarea,
-                    t => t.Id,
-                    (e, t) => new { Entrega = e, Tarea = t })
-                .Where(x => x.Tarea.IdMateria == idMateria && x.Entrega.IdUsuario == idUsuario)
-                .Select(x => x.Entrega)
-                .ToListAsync();
-
-            return Ok(entregas);
+            return Ok(await _service.ListarPorMateriaYAlumnoAsync(idMateria, idUsuario));
         }
 
+        /// <summary>Registra la entrega del usuario autenticado para una tarea.</summary>
+        /// <param name="dto">Tarea entregada.</param>
+        /// <response code="201">Entrega registrada.</response>
+        /// <response code="400">La tarea no existe o ya fue entregada.</response>
+        // POST /entregas
         [HttpPost]
-        public async Task<ActionResult<Entrega>> RealizarEntrega([FromBody] EntregaDTO dto)
+        public async Task<ActionResult<EntregaRespuestaDTO>> RealizarEntrega([FromBody] EntregaDTO dto)
         {
-            int idUsuario = User.GetUserId()!.Value;
-
-            var tareaExiste = await _context.Tareas.AnyAsync(t => t.Id == dto.IdTarea);
-            if (!tareaExiste) return BadRequest("La tarea especificada no existe.");
-
-            var existe = await _context.Entregas
-                .AnyAsync(e => e.IdTarea == dto.IdTarea && e.IdUsuario == idUsuario);
-            if (existe) return BadRequest("Ya realizaste una entrega para esta tarea.");
-
-            var nuevaEntrega = new Entrega
-            {
-                IdTarea = dto.IdTarea,
-                IdUsuario = idUsuario,
-                FechaEntrega = DateTime.UtcNow, 
-            };
-
-            _context.Entregas.Add(nuevaEntrega);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction(nameof(BuscarPorAlumno), new { idUsuario = nuevaEntrega.IdUsuario }, nuevaEntrega);
+            var creada = await _service.RealizarAsync(dto);
+            return CreatedAtAction(nameof(BuscarPorAlumno), new { idUsuario = creada.IdUsuario }, creada);
         }
 
+        /// <summary>Modifica una entrega. Solo un administrador puede asignar la calificacion.</summary>
+        /// <param name="id">Id de la entrega.</param>
+        /// <param name="dto">Campos a modificar.</param>
+        // PATCH /entregas/{id}
         [HttpPatch("{id}")]
         public async Task<IActionResult> ModificarEntrega(int id, [FromBody] ModificarEntregaDTO dto)
         {
-            var entrega = await _context.Entregas.FindAsync(id);
-            if (entrega == null) return NotFound();
-
-            if (!User.TienePermiso(entrega.IdUsuario)) return Forbid();
-
-            if (dto.FechaEntrega.HasValue)
-                entrega.FechaEntrega = dto.FechaEntrega.Value;
-
-            if (dto.Calificacion != null && User.EsAdmin())
-                entrega.Calificacion = dto.Calificacion;
-
-            await _context.SaveChangesAsync();
+            await _service.ModificarAsync(id, dto);
             return NoContent();
         }
 
+        /// <summary>Elimina una entrega propia (o cualquiera, si es administrador).</summary>
+        /// <param name="id">Id de la entrega.</param>
+        // DELETE /entregas/{id}
         [HttpDelete("{id}")]
         public async Task<IActionResult> EliminarEntrega(int id)
         {
-            var entrega = await _context.Entregas.FindAsync(id);
-            if (entrega == null) return NotFound();
-
-            if (!User.TienePermiso(entrega.IdUsuario)) return Forbid();
-
-            _context.Entregas.Remove(entrega);
-            await _context.SaveChangesAsync();
+            await _service.EliminarAsync(id);
             return NoContent();
         }
     }

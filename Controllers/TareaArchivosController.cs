@@ -1,87 +1,53 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Plataforma24API.Auth;
-using Plataforma24API.Data;
-using Plataforma24API.Models;
+using Plataforma24API.DTOs.Tareas;
+using Plataforma24API.Infrastructure.Security;
+using Plataforma24API.Services.Interfaces;
 
 namespace Plataforma24API.Controllers
 {
+    /// <summary>Archivos asociados a las tareas.</summary>
     [ApiController]
-    [Route("/tareas/archivos")]
+    [Route("tareas/archivos")]
     [Authorize]
     public class TareaArchivosController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly ITareaArchivoService _service;
 
-        public TareaArchivosController(AppDbContext context)
+        public TareaArchivosController(ITareaArchivoService service)
         {
-            _context = context;
+            _service = service;
         }
 
+        /// <summary>Lista los archivos de una tarea.</summary>
+        /// <param name="idTarea">Id de la tarea.</param>
+        // GET /tareas/archivos?idTarea={id}
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<TareaArchivoDTO>>> ListarArchivosTarea(int idTarea)
+        public async Task<ActionResult<IEnumerable<TareaArchivoDTO>>> ListarArchivosTarea([FromQuery] int idTarea)
         {
-            var archivosDeTarea = await _context.TareaArchivos
-                .Where(ta => ta.IdTarea == idTarea)
-                .Join(_context.Archivos,
-                    ta => ta.IdArchivo,
-                    a => a.Id,
-                    (ta, a) => new TareaArchivoDTO
-                    {
-                        IdTarea = ta.IdTarea,
-                        IdArchivo = ta.IdArchivo,
-                        NombreOriginal = a.NombreOriginal,
-                        Ruta = a.Ruta
-                    })
-                .ToListAsync();
-
-            return Ok(archivosDeTarea);
+            return Ok(await _service.ListarAsync(idTarea));
         }
 
+        /// <summary>Asocia un archivo a una tarea. Administradores y profesores.</summary>
+        /// <param name="dto">Tarea y archivo.</param>
+        // POST /tareas/archivos
         [HttpPost]
+        [Authorize(Policy = Policies.AdminOProfesor)]
         public async Task<IActionResult> VincularArchivo([FromBody] VincTareaArchivoDTO dto)
         {
-            if (!User.EsAdmin() && !User.EsProfe())
-            {
-                return Forbid("Solo los profesores o administradores pueden vincular archivos a las tareas.");
-            }
-
-            var existeTarea = await _context.Tareas.AnyAsync(t => t.Id == dto.IdTarea);
-            var existeArchivo = await _context.Archivos.AnyAsync(a => a.Id == dto.IdArchivo);
-
-            if (!existeTarea || !existeArchivo)
-                return BadRequest("La tarea o el archivo especificado no existen.");
-
-            var yaVinculado = await _context.TareaArchivos
-                .AnyAsync(ta => ta.IdTarea == dto.IdTarea && ta.IdArchivo == dto.IdArchivo);
-            if (yaVinculado) return BadRequest("Este archivo ya está vinculado a la tarea.");
-
-            var relacion = new TareaArchivo
-            {
-                IdTarea = dto.IdTarea,
-                IdArchivo = dto.IdArchivo
-            };
-
-            _context.TareaArchivos.Add(relacion);
-            await _context.SaveChangesAsync();
-
+            await _service.VincularAsync(dto);
             return NoContent();
         }
 
+        /// <summary>Quita un archivo de una tarea. Administradores y profesores.</summary>
+        /// <param name="idTarea">Id de la tarea.</param>
+        /// <param name="idArchivo">Id del archivo.</param>
+        // DELETE /tareas/archivos?idTarea={id}&idArchivo={id}
         [HttpDelete]
+        [Authorize(Policy = Policies.AdminOProfesor)]
         public async Task<IActionResult> DesvincularArchivo([FromQuery] int idTarea, [FromQuery] int idArchivo)
         {
-            if (!User.EsAdmin() && !User.EsProfe()) return Forbid();
-
-            var registro = await _context.TareaArchivos
-                .FirstOrDefaultAsync(ta => ta.IdTarea == idTarea && ta.IdArchivo == idArchivo);
-
-            if (registro == null) return NotFound("No se encontró el vínculo entre la tarea y el archivo.");
-
-            _context.TareaArchivos.Remove(registro);
-            await _context.SaveChangesAsync();
-
+            await _service.DesvincularAsync(idTarea, idArchivo);
             return NoContent();
         }
     }

@@ -1,134 +1,81 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Plataforma24API.Auth;
-using Plataforma24API.Data;
 using Plataforma24API.DTOs.Cursos;
-using Plataforma24API.DTOs.Usuarios;
+using Plataforma24API.Infrastructure.Security;
 using Plataforma24API.Models;
+using Plataforma24API.Services.Interfaces;
 
 namespace Plataforma24API.Controllers
 {
+    /// <summary>Consulta y administracion de cursos.</summary>
     [ApiController]
     [Route("cursos")]
     [Authorize]
     public class CursosController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly ICursoService _service;
 
-        public CursosController(AppDbContext context)
+        public CursosController(ICursoService service)
         {
-            _context = context;
+            _service = service;
         }
 
+        /// <summary>Lista los cursos, con filtros opcionales.</summary>
+        /// <param name="ano">Anio de cursada.</param>
+        /// <param name="turno">Turno.</param>
+        // GET /cursos?ano={anio}&turno={turno}
         [HttpGet]
         public async Task<ActionResult<IEnumerable<CursoDTO>>> ListarCursos(
             [FromQuery] Year? ano,
             [FromQuery] Turno? turno)
         {
-            var cons = _context.Cursos.AsQueryable();
-
-            if (ano.HasValue)
-            {
-                cons = cons.Where(c => c.Año == ano.Value);
-            }
-
-            if (turno.HasValue)
-            {
-                cons = cons.Where(c => c.Turno == turno.Value);
-            }
-
-            var resultados = await cons.ToListAsync();
-
-            return Ok(resultados.Select(c => MapearDTO(c)));
+            return Ok(await _service.ListarAsync(ano, turno));
         }
 
+        /// <summary>Devuelve un curso.</summary>
+        /// <param name="id">Id del curso.</param>
+        /// <response code="404">El curso no existe.</response>
+        // GET /cursos/{id}
         [HttpGet("{id}")]
         public async Task<ActionResult<CursoDTO>> BuscarCurso(int id)
         {
-            var c = await _context.Cursos.FindAsync(id);
-            if (c == null) return NotFound();
-
-            return Ok(MapearDTO(c));
+            return Ok(await _service.BuscarAsync(id));
         }
 
+        /// <summary>Crea un curso. Solo administradores.</summary>
+        /// <param name="dto">Datos del curso.</param>
+        /// <response code="201">Curso creado.</response>
+        /// <response code="400">Ya existe un curso con esa combinacion.</response>
+        // POST /cursos
         [HttpPost]
+        [Authorize(Policy = Policies.Admin)]
         public async Task<ActionResult<CursoDTO>> CrearCurso([FromBody] CursoDTO dto)
         {
-            if (!User.EsAdmin()) return Forbid();
-
-            var duplicado = await _context.Cursos.AnyAsync(c =>
-                c.Año == dto.Año && c.Division == dto.Division &&
-                c.Turno == dto.Turno && c.CicloLectivo == dto.CicloLectivo);
-            if (duplicado) return BadRequest("Ya existe un curso con ese año, división, turno y ciclo lectivo.");
-
-            var datos = new Curso
-            {
-                Año = dto.Año,
-                Division = dto.Division,
-                Turno = dto.Turno,
-                Aula = dto.Aula,
-                CicloLectivo = dto.CicloLectivo
-            };
-
-            _context.Cursos.Add(datos);
-
-            await _context.SaveChangesAsync();
-
-            dto.Id = datos.Id;  
-            return CreatedAtAction(nameof(BuscarCurso), new { id = datos.Id }, dto);
+            var creado = await _service.CrearAsync(dto);
+            return CreatedAtAction(nameof(BuscarCurso), new { id = creado.Id }, creado);
         }
 
+        /// <summary>Modifica un curso. Solo administradores.</summary>
+        /// <param name="id">Id del curso.</param>
+        /// <param name="dto">Campos a modificar.</param>
+        // PATCH /cursos/{id}
         [HttpPatch("{id}")]
+        [Authorize(Policy = Policies.Admin)]
         public async Task<IActionResult> ActualizarCurso(int id, [FromBody] ModificarCursoDTO dto)
         {
-            if (!User.EsAdmin()) return Forbid();
-
-            var curso = await _context.Cursos.FindAsync(id);
-            if (curso == null) return NotFound($"No se encontró el curso número {id}");
-
-            if (dto.Año.HasValue) curso.Año = dto.Año.Value;
-            if (dto.Division.HasValue) curso.Division = dto.Division.Value;
-            if (dto.Turno.HasValue) curso.Turno = dto.Turno.Value;
-            if (dto.Aula != null) curso.Aula = dto.Aula;
-            if (dto.CicloLectivo.HasValue) curso.CicloLectivo = dto.CicloLectivo.Value;
-
-            await _context.SaveChangesAsync();
+            await _service.ActualizarAsync(id, dto);
             return NoContent();
         }
 
+        /// <summary>Elimina un curso. Solo administradores.</summary>
+        /// <param name="id">Id del curso.</param>
+        // DELETE /cursos/{id}
         [HttpDelete("{id}")]
+        [Authorize(Policy = Policies.Admin)]
         public async Task<IActionResult> EliminarCurso(int id)
         {
-            if (!User.EsAdmin()) return Forbid();
-
-            var curso = await _context.Cursos.FindAsync(id);
-            if (curso == null) return NotFound();
-
-            try
-            {
-                _context.Cursos.Remove(curso);
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateException)
-            {
-                return BadRequest("No se puede eliminar el curso porque tiene alumnos o registros asociados.");
-            }
-
+            await _service.EliminarAsync(id);
             return NoContent();
-        }
-
-        private static CursoDTO MapearDTO(Curso c)
-        {
-            return new CursoDTO
-            {
-                Id = c.Id,
-                Año = c.Año,
-                Division = c.Division,
-                Turno = c.Turno,
-                Aula = c.Aula,
-                CicloLectivo = c.CicloLectivo
-            };
         }
     }
 }

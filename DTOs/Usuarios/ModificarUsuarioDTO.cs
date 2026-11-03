@@ -1,5 +1,6 @@
-﻿namespace Plataforma24API.DTOs.Usuarios
+namespace Plataforma24API.DTOs.Usuarios
 {
+    /// <summary>Cambios sobre un usuario. Solo un administrador puede modificar email, rol y curso.</summary>
     public class ModificarUsuarioDTO
     {
         public string? NombreUsuario { get; set; }

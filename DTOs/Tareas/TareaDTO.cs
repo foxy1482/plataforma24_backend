@@ -1,5 +1,6 @@
-﻿namespace Plataforma24API.DTOs.Tareas
+namespace Plataforma24API.DTOs.Tareas
 {
+    /// <summary>Tarea asignada a una materia.</summary>
     public class TareaDTO
     {
         public int Id { get; set; }

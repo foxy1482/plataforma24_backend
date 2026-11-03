@@ -1,8 +1,9 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Plataforma24API.Models
 {
+    /// <summary>Relacion entre una entrega y un archivo adjunto.</summary>
     [Table("entrega_archivos")]
     public class EntregaArchivo
     {

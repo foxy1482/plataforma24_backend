@@ -1,14 +1,14 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Plataforma24API.Models;
 
 namespace Plataforma24API.Data
 {
+    /// <summary>Contexto de EF Core. Mapea las tablas y las vistas de solo lectura de PostgreSQL.</summary>
     public class AppDbContext : DbContext
     {
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
         {
-
         }
 
         public DbSet<Usuario> Usuarios { get; set; }

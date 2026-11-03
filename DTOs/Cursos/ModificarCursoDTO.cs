@@ -1,10 +1,11 @@
-﻿using Plataforma24API.Models;
+using Plataforma24API.Models;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 
 namespace Plataforma24API.DTOs.Cursos
 {
+    /// <summary>Cambios sobre un curso. Los campos nulos no se modifican.</summary>
     public class ModificarCursoDTO
     {
         public Year? Año { get; set; }

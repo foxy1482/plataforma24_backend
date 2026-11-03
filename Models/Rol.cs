@@ -1,7 +1,8 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 namespace Plataforma24API.Models
 {
+    /// <summary>Rol de usuario.</summary>
     [Table("rol")]
     public class Rol
     {

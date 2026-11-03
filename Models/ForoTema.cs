@@ -1,8 +1,9 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Plataforma24API.Models
 {
+    /// <summary>Tema del foro, general o de un curso. Se elimina de forma logica.</summary>
     [Table("foro_temas")]
     public class ForoTema
     {

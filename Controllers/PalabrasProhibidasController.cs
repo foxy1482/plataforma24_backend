@@ -1,124 +1,76 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Plataforma24API.Auth;
-using Plataforma24API.Data;
 using Plataforma24API.DTOs.Foro;
-using Plataforma24API.Models;
+using Plataforma24API.Infrastructure.Security;
+using Plataforma24API.Services.Interfaces;
 
 namespace Plataforma24API.Controllers
 {
+    /// <summary>Palabras bloqueadas en el foro y verificacion de textos.</summary>
     [ApiController]
     [Route("foro/palabras")]
     [Authorize]
     public class PalabrasProhibidasController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly IPalabraProhibidaService _service;
 
-        public PalabrasProhibidasController(AppDbContext context)
+        public PalabrasProhibidasController(IPalabraProhibidaService service)
         {
-            _context = context;
+            _service = service;
         }
 
-        private bool PuedeAdministrar()
-        {
-            return User.EsAdmin() || User.EsPreceptor();
-        }
-
+        /// <summary>Lista las palabras bloqueadas. Administradores y preceptores.</summary>
+        // GET /foro/palabras
         [HttpGet]
+        [Authorize(Policy = Policies.AdminOPreceptor)]
         public async Task<ActionResult<IEnumerable<PalabraDTO>>> ListarPalabras()
         {
-            if (!PuedeAdministrar()) return Forbid();
-
-            var palabras = await _context.PalabrasProhibidas
-                .OrderBy(p => p.Palabra)
-                .ToListAsync();
-
-            return Ok(palabras.Select(p => MapearDTO(p)));
+            return Ok(await _service.ListarAsync());
         }
 
-
+        /// <summary>Bloquea una palabra. Administradores y preceptores.</summary>
+        /// <param name="dto">Palabra y modo de coincidencia.</param>
+        /// <response code="201">Palabra bloqueada.</response>
+        /// <response code="409">La palabra ya esta registrada.</response>
+        // POST /foro/palabras
         [HttpPost]
+        [Authorize(Policy = Policies.AdminOPreceptor)]
         public async Task<ActionResult<PalabraDTO>> CrearPalabra([FromBody] CrearPalabraDTO dto)
         {
-            if (!PuedeAdministrar()) return Forbid();
-
-            var datos = new PalabraProhibida
-            {
-                Palabra = dto.Palabra.Trim(),
-                Modo = dto.Modo,
-                IdAgregadaPor = User.GetUserId()
-            };
-
-            try
-            {
-                _context.PalabrasProhibidas.Add(datos);
-                await _context.SaveChangesAsync();
-            }
-            catch (Exception ex) when (PostgresErrores.EsErrorDeNegocio(ex))
-            {
-                return this.RespuestaDeError(ex);
-            }
-
-            return CreatedAtAction(nameof(ListarPalabras), null, MapearDTO(datos));
+            var creada = await _service.CrearAsync(dto);
+            return CreatedAtAction(nameof(ListarPalabras), null, creada);
         }
 
+        /// <summary>Activa, desactiva o cambia el modo de una palabra. Administradores y preceptores.</summary>
+        /// <param name="id">Id de la palabra.</param>
+        /// <param name="dto">Campos a modificar.</param>
+        // PATCH /foro/palabras/{id}
         [HttpPatch("{id}")]
+        [Authorize(Policy = Policies.AdminOPreceptor)]
         public async Task<IActionResult> ActualizarPalabra(int id, [FromBody] ModificarPalabraDTO dto)
         {
-            if (!PuedeAdministrar()) return Forbid();
-
-            var palabra = await _context.PalabrasProhibidas.FindAsync(id);
-            if (palabra == null) return NotFound();
-
-            if (dto.Activa.HasValue) palabra.Activa = dto.Activa.Value;
-            if (dto.Modo.HasValue) palabra.Modo = dto.Modo.Value;
-
-            await _context.SaveChangesAsync();
+            await _service.ActualizarAsync(id, dto);
             return NoContent();
         }
 
+        /// <summary>Elimina una palabra de la lista. Solo administradores.</summary>
+        /// <param name="id">Id de la palabra.</param>
+        // DELETE /foro/palabras/{id}
         [HttpDelete("{id}")]
+        [Authorize(Policy = Policies.Admin)]
         public async Task<IActionResult> EliminarPalabra(int id)
         {
-            if (!User.EsAdmin()) return Forbid();
-
-            var palabra = await _context.PalabrasProhibidas.FindAsync(id);
-            if (palabra == null) return NotFound();
-
-            _context.PalabrasProhibidas.Remove(palabra);
-            await _context.SaveChangesAsync();
-
+            await _service.EliminarAsync(id);
             return NoContent();
         }
 
+        /// <summary>Indica si un texto contiene una palabra bloqueada, sin publicarlo.</summary>
+        /// <param name="dto">Texto a revisar.</param>
+        // POST /foro/palabras/verificar
         [HttpPost("verificar")]
-        public async Task<IActionResult> VerificarTexto([FromBody] VerificarTextoDTO dto)
+        public async Task<ActionResult<VerificacionTextoDTO>> VerificarTexto([FromBody] VerificarTextoDTO dto)
         {
-            var encontrada = await _context.Database
-                .SqlQuery<string>($"SELECT COALESCE(public.fn_buscar_palabra_prohibida({dto.Texto}), '') AS \"Value\"")
-                .SingleAsync();
-
-            bool permitido = encontrada == "";
-
-            return Ok(new
-            {
-                permitido,
-                palabra = permitido ? null : encontrada
-            });
-        }
-
-        private static PalabraDTO MapearDTO(PalabraProhibida p)
-        {
-            return new PalabraDTO
-            {
-                Id = p.Id,
-                Palabra = p.Palabra,
-                Modo = p.Modo,
-                Activa = p.Activa,
-                IdAgregadaPor = p.IdAgregadaPor,
-                FechaAlta = p.FechaAlta
-            };
+            return Ok(await _service.VerificarAsync(dto));
         }
     }
 }

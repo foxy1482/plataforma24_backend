@@ -1,115 +1,72 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Plataforma24API.Auth;
-using Plataforma24API.Data;
 using Plataforma24API.DTOs.Usuarios;
-using Plataforma24API.Models;
+using Plataforma24API.Infrastructure.Security;
+using Plataforma24API.Services.Interfaces;
 
 namespace Plataforma24API.Controllers
 {
+    /// <summary>Consulta y administracion de usuarios.</summary>
     [ApiController]
     [Route("usuarios")]
-    [Authorize] // Protegemos todos los endpoints de usuario
+    [Authorize]
     public class UsuariosController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly IUsuarioService _service;
 
-        public UsuariosController(AppDbContext context)
+        public UsuariosController(IUsuarioService service)
         {
-            _context = context;
+            _service = service;
         }
 
-        // GET /usuarios/
+        /// <summary>Lista todos los usuarios.</summary>
+        // GET /usuarios
         [HttpGet]
         public async Task<ActionResult<IEnumerable<UsuarioDTO>>> ListarUsuarios()
         {
-            // Primero traemos las entidades y despues mapeamos con el helper
-            var usuarios = await _context.Usuarios.ToListAsync();
-            return Ok(usuarios.Select(u => MapearDTO(u)));
+            return Ok(await _service.ListarAsync());
         }
 
+        /// <summary>Devuelve un usuario.</summary>
+        /// <param name="idUsuario">Id del usuario.</param>
+        /// <response code="404">El usuario no existe.</response>
         // GET /usuarios/{idUsuario}
         [HttpGet("{idUsuario}")]
         public async Task<ActionResult<UsuarioDTO>> ObtenerUsuario(int idUsuario)
         {
-            // Ahora "id" es la PK, asi que FindAsync sigue funcionando
-            var u = await _context.Usuarios.FindAsync(idUsuario);
-            if (u == null) return NotFound();
-
-            return MapearDTO(u);
+            return Ok(await _service.BuscarAsync(idUsuario));
         }
 
+        /// <summary>Lista los usuarios asignados a un curso.</summary>
+        /// <param name="numCurso">Id del curso.</param>
         // GET /usuarios/curso/{numCurso}
-        // Retorna los usuarios del curso
         [HttpGet("curso/{numCurso}")]
         public async Task<ActionResult<IEnumerable<UsuarioDTO>>> ObtenerUsuariosPorCurso(int numCurso)
         {
-            var usuarios = await _context.Usuarios
-                .Where(u => u.IdCurso == numCurso)
-                .ToListAsync();
-
-            return Ok(usuarios.Select(u => MapearDTO(u)));
+            return Ok(await _service.ListarPorCursoAsync(numCurso));
         }
 
+        /// <summary>Modifica un usuario. Solo un administrador puede cambiar email, rol y curso.</summary>
+        /// <param name="idUsuario">Id del usuario.</param>
+        /// <param name="dto">Campos a modificar.</param>
+        /// <response code="403">La cuenta es de otro usuario o se intento cambiar el rol o el curso sin ser administrador.</response>
         // PATCH /usuarios/{idUsuario}
         [HttpPatch("{idUsuario}")]
         public async Task<IActionResult> ActualizarUsuario(int idUsuario, [FromBody] ModificarUsuarioDTO dto)
         {
-            if (!User.TienePermiso(idUsuario)) return Forbid();
-
-            var usuario = await _context.Usuarios.FindAsync(idUsuario);
-            if (usuario == null) return NotFound();
-
-            if (!User.EsAdmin())
-            {
-                if (dto.IdRol.HasValue || dto.IdCurso.HasValue)
-                {
-                    return BadRequest("No tienes permisos para modificar el Rol o el Curso.");
-                }
-            }
-
-            // Actualización parcial lógica
-            if (dto.NombreUsuario != null) usuario.NombreUsuario = dto.NombreUsuario;
-
-            if (User.EsAdmin())
-            {
-                if (dto.IdRol.HasValue) usuario.IdRol = dto.IdRol.Value;
-                if (dto.IdCurso.HasValue) usuario.IdCurso = dto.IdCurso.Value;
-
-                if (dto.Email != null) usuario.Email = dto.Email;
-            }
-
-            await _context.SaveChangesAsync();
+            await _service.ActualizarAsync(idUsuario, dto);
             return NoContent();
         }
 
+        /// <summary>Elimina un usuario. Solo administradores.</summary>
+        /// <param name="idUsuario">Id del usuario.</param>
         // DELETE /usuarios/{idUsuario}
         [HttpDelete("{idUsuario}")]
+        [Authorize(Policy = Policies.Admin)]
         public async Task<IActionResult> EliminarUsuario(int idUsuario)
         {
-            if (!User.EsAdmin()) return Forbid();
-
-            var usuario = await _context.Usuarios.FindAsync(idUsuario);
-            if (usuario == null) return NotFound();
-
-            _context.Usuarios.Remove(usuario);
-            await _context.SaveChangesAsync();
+            await _service.EliminarAsync(idUsuario);
             return NoContent();
-        }
-
-        // Función auxiliar para no repetir el mapeo en cada endpoint
-        private static UsuarioDTO MapearDTO(Usuario u)
-        {
-            return new UsuarioDTO
-            {
-                Id = u.Id,
-                NumeroLegajo = u.NumeroLegajo,
-                Email = u.Email,
-                NombreUsuario = u.NombreUsuario,
-                IdRol = u.IdRol,
-                IdCurso = u.IdCurso
-            };
         }
     }
 }

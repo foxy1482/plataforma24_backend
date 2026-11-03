@@ -1,9 +1,10 @@
-﻿using Plataforma24API.Models;
+using Plataforma24API.Models;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Plataforma24API.DTOs.Usuarios
 {
+    /// <summary>Datos personales de un usuario.</summary>
     public class DatosPersonalesDTO
     {
         public int IdUsuario { get; set; }

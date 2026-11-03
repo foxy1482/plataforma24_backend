@@ -1,6 +1,19 @@
 @Plataforma24API_HostAddress = http://localhost:5136
+@token = pegar-aqui-el-token-de-login
 
-GET {{Plataforma24API_HostAddress}}/weatherforecast/
-Accept: application/json
+### Iniciar sesion
+POST {{Plataforma24API_HostAddress}}/auth/login
+Content-Type: application/json
 
-###
+{
+  "email": "usuario@ejemplo.com",
+  "password": "clave123"
+}
+
+### Perfil del usuario autenticado
+GET {{Plataforma24API_HostAddress}}/auth/profile
+Authorization: Bearer {{token}}
+
+### Cursos
+GET {{Plataforma24API_HostAddress}}/cursos
+Authorization: Bearer {{token}}

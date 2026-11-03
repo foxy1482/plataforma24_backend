@@ -1,8 +1,9 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Plataforma24API.Models
 {
+    /// <summary>Reporte de un mensaje del foro, pendiente de revision por moderacion.</summary>
     [Table("foro_reportes")]
     public class ForoReporte
     {

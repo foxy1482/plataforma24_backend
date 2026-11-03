@@ -1,9 +1,10 @@
-﻿using Plataforma24API.Models;
+using Plataforma24API.Models;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Plataforma24API.DTOs.Usuarios
 {
+    /// <summary>Cambios sobre los datos personales. Los campos nulos no se modifican.</summary>
     public class ModificarDatosPersonalesDTO
     {
         public string? Nombre { get; set; }

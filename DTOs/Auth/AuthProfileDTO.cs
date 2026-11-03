@@ -1,10 +1,11 @@
-﻿namespace Plataforma24API.DTOs.Auth
+namespace Plataforma24API.DTOs.Auth
 {
+    /// <summary>Datos de la cuenta del usuario autenticado.</summary>
     public class AuthProfileDTO
     {
         public int Id { get; set; }
 
-        public string NumeroLegajo { get; set; } = null!;   
+        public string NumeroLegajo { get; set; } = null!;
 
         public string Email { get; set; } = null!;
 

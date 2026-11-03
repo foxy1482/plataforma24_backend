@@ -1,8 +1,9 @@
-﻿using System.ComponentModel.DataAnnotations.Schema;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.ComponentModel.DataAnnotations;
 
 namespace Plataforma24API.Models
 {
+    /// <summary>Cuenta de acceso. El legajo lo genera la base de datos.</summary>
     [Table("usuarios")]
     public class Usuario
     {

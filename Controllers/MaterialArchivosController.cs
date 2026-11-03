@@ -1,86 +1,53 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Plataforma24API.Auth;
-using Plataforma24API.Data;
-using Plataforma24API.Models;
+using Plataforma24API.DTOs.Materiales;
+using Plataforma24API.Infrastructure.Security;
+using Plataforma24API.Services.Interfaces;
 
 namespace Plataforma24API.Controllers
 {
+    /// <summary>Archivos asociados a los materiales didacticos.</summary>
     [ApiController]
-    [Route("/materiales/archivos/")]
+    [Route("materiales/archivos")]
     [Authorize]
     public class MaterialArchivosController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly IMaterialArchivoService _service;
 
-        public MaterialArchivosController(AppDbContext context)
+        public MaterialArchivosController(IMaterialArchivoService service)
         {
-            _context = context;
+            _service = service;
         }
 
+        /// <summary>Lista los archivos de un material.</summary>
+        /// <param name="idMaterial">Id del material.</param>
+        // GET /materiales/archivos?idMaterial={id}
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<MaterialArchivosDTO>>> ListarArchivosMaterial(int idMaterial)
+        public async Task<ActionResult<IEnumerable<MaterialArchivoDTO>>> ListarArchivosMaterial([FromQuery] int idMaterial)
         {
-            var archivosMaterial = await _context.MaterialArchivos
-                .Where(ta => ta.IdMaterial == idMaterial)
-                .Join(_context.Archivos,
-                    ta => ta.IdArchivo,
-                    a => a.Id,
-                    (ta, a) => new MaterialArchivosDTO
-                    {
-                        IdMaterial = ta.IdMaterial,
-                        IdArchivo = ta.IdArchivo,
-                        NombreOriginal = a.NombreOriginal,
-                        Ruta = a.Ruta
-                    })
-                .ToListAsync();
-
-            return Ok(archivosMaterial);
+            return Ok(await _service.ListarAsync(idMaterial));
         }
 
-        // POST /materiales/archivos/
+        /// <summary>Asocia un archivo a un material. Solo administradores.</summary>
+        /// <param name="dto">Material y archivo.</param>
+        // POST /materiales/archivos
         [HttpPost]
+        [Authorize(Policy = Policies.Admin)]
         public async Task<IActionResult> VincularArchivo([FromBody] VincMaterialArchivoDTO dto)
         {
-            if (!User.EsAdmin()) return Forbid();
-
-            var existeMaterial = await _context.Materiales.AnyAsync(t => t.Id == dto.IdMaterial);
-            var existeArchivo = await _context.Archivos.AnyAsync(a => a.Id == dto.IdArchivo);
-
-            if (!existeMaterial || !existeArchivo)
-                return BadRequest("El material o el archivo especificado no existen.");
-
-            var yaVinculado = await _context.MaterialArchivos
-                .AnyAsync(ta => ta.IdMaterial == dto.IdMaterial && ta.IdArchivo == dto.IdArchivo);
-            if (yaVinculado) return BadRequest("Este archivo ya está vinculado al material.");
-
-            var relacion = new MaterialArchivo
-            {
-                IdMaterial = dto.IdMaterial,
-                IdArchivo = dto.IdArchivo
-            };
-
-            _context.MaterialArchivos.Add(relacion);
-            await _context.SaveChangesAsync();
-
+            await _service.VincularAsync(dto);
             return NoContent();
         }
 
-        // DELETE /materiales/archivos/
+        /// <summary>Quita un archivo de un material. Solo administradores.</summary>
+        /// <param name="idMaterial">Id del material.</param>
+        /// <param name="idArchivo">Id del archivo.</param>
+        // DELETE /materiales/archivos?idMaterial={id}&idArchivo={id}
         [HttpDelete]
+        [Authorize(Policy = Policies.Admin)]
         public async Task<IActionResult> DesvincularArchivo([FromQuery] int idMaterial, [FromQuery] int idArchivo)
         {
-            if (!User.EsAdmin()) return Forbid();
-
-            var registro = await _context.MaterialArchivos
-                .FirstOrDefaultAsync(ta => ta.IdMaterial == idMaterial && ta.IdArchivo == idArchivo);
-
-            if (registro == null) return NotFound("No se encontró el vínculo entre el material y el archivo.");
-
-            _context.MaterialArchivos.Remove(registro);
-            await _context.SaveChangesAsync();
-
+            await _service.DesvincularAsync(idMaterial, idArchivo);
             return NoContent();
         }
     }

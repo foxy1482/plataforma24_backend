@@ -1,127 +1,80 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Plataforma24API.Auth;
-using Plataforma24API.Data;
-using Plataforma24API.DTOs.Materia;
 using Plataforma24API.DTOs.Materias;
-using Plataforma24API.Models;
+using Plataforma24API.Infrastructure.Security;
+using Plataforma24API.Services.Interfaces;
 
 namespace Plataforma24API.Controllers
 {
+    /// <summary>Consulta y administracion de materias.</summary>
     [ApiController]
     [Route("materias")]
     [Authorize]
     public class MateriasController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly IMateriaService _service;
 
-        public MateriasController(AppDbContext context)
+        public MateriasController(IMateriaService service)
         {
-            _context = context;
+            _service = service;
         }
 
+        /// <summary>Lista las materias, con filtros opcionales.</summary>
+        /// <param name="profesor">Id del profesor a cargo.</param>
+        /// <param name="curso">Id del curso.</param>
+        // GET /materias?profesor={idProfesor}&curso={idCurso}
         [HttpGet]
         public async Task<ActionResult<IEnumerable<MateriaDTO>>> ListarMaterias(
             [FromQuery] int? profesor,
             [FromQuery] int? curso)
         {
-            var cons = _context.Materias.AsQueryable();
-
-            if (profesor != null && profesor != 0)
-            {
-                cons = cons.Where(m => m.IdProfesor == profesor);
-            }
-
-            if (curso != null && curso != 0)
-            {
-                cons = cons.Where(m => m.IdCurso == curso);
-            }
-
-            var resultados = await cons.ToListAsync();
-
-            return Ok(resultados.Select(m => MapearDTO(m)));
+            return Ok(await _service.ListarAsync(profesor, curso));
         }
 
+        /// <summary>Devuelve una materia.</summary>
+        /// <param name="id">Id de la materia.</param>
+        /// <response code="404">La materia no existe.</response>
+        // GET /materias/{id}
         [HttpGet("{id}")]
         public async Task<ActionResult<MateriaDTO>> BuscarMateria(int id)
         {
-            var m = await _context.Materias.FindAsync(id);
-            if (m == null) return NotFound();
-
-            return Ok(MapearDTO(m));
+            return Ok(await _service.BuscarAsync(id));
         }
 
-
+        /// <summary>Crea una materia. Solo administradores.</summary>
+        /// <param name="dto">Datos de la materia.</param>
+        /// <response code="201">Materia creada.</response>
+        /// <response code="400">El curso ya tiene una materia con ese nombre.</response>
+        // POST /materias
         [HttpPost]
+        [Authorize(Policy = Policies.Admin)]
         public async Task<ActionResult<MateriaDTO>> CrearMateria([FromBody] MateriaDTO dto)
         {
-            if (!User.EsAdmin()) return Forbid();
-
-            var duplicada = await _context.Materias.AnyAsync(m => m.IdCurso == dto.IdCurso && m.Nombre == dto.Nombre);
-            if (duplicada) return BadRequest("Ya existe una materia con ese nombre en el curso.");
-
-            var datos = new Materia
-            {
-                Nombre = dto.Nombre,
-                IdProfesor = dto.IdProfesor,
-                IdCurso = dto.IdCurso,
-            };
-
-            _context.Materias.Add(datos);
-
-            await _context.SaveChangesAsync();
-
-            dto.Id = datos.Id;   
-            return CreatedAtAction(nameof(BuscarMateria), new { id = datos.Id }, dto);
+            var creada = await _service.CrearAsync(dto);
+            return CreatedAtAction(nameof(BuscarMateria), new { id = creada.Id }, creada);
         }
 
+        /// <summary>Modifica una materia. Solo administradores.</summary>
+        /// <param name="id">Id de la materia.</param>
+        /// <param name="dto">Campos a modificar.</param>
+        // PATCH /materias/{id}
         [HttpPatch("{id}")]
+        [Authorize(Policy = Policies.Admin)]
         public async Task<IActionResult> ActualizarMateria(int id, [FromBody] ModificarMateriaDTO dto)
         {
-            if (!User.EsAdmin()) return Forbid();
-
-            var materia = await _context.Materias.FindAsync(id);
-            if (materia == null) return NotFound($"No se encontró la materia número {id}");
-
-            if (dto.Nombre != null) materia.Nombre = dto.Nombre;
-            if (dto.IdProfesor.HasValue) materia.IdProfesor = dto.IdProfesor.Value;
-            if (dto.IdCurso.HasValue) materia.IdCurso = dto.IdCurso.Value;
-
-            await _context.SaveChangesAsync();
+            await _service.ActualizarAsync(id, dto);
             return NoContent();
         }
 
+        /// <summary>Elimina una materia. Solo administradores.</summary>
+        /// <param name="id">Id de la materia.</param>
+        // DELETE /materias/{id}
         [HttpDelete("{id}")]
+        [Authorize(Policy = Policies.Admin)]
         public async Task<IActionResult> EliminarMateria(int id)
         {
-            if (!User.EsAdmin()) return Forbid();
-
-            var materia = await _context.Materias.FindAsync(id);
-            if (materia == null) return NotFound();
-
-            try
-            {
-                _context.Materias.Remove(materia);
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateException)
-            {
-                return BadRequest("No se puede eliminar la materia porque tiene profesores o cursos asociados.");
-            }
-
+            await _service.EliminarAsync(id);
             return NoContent();
-        }
-
-        private static MateriaDTO MapearDTO(Materia m)
-        {
-            return new MateriaDTO
-            {
-                Id = m.Id,
-                Nombre = m.Nombre,
-                IdProfesor = m.IdProfesor,
-                IdCurso = m.IdCurso
-            };
         }
     }
 }

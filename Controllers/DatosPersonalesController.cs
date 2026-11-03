@@ -1,131 +1,77 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Plataforma24API.Data;
 using Plataforma24API.DTOs.Usuarios;
-using Plataforma24API.Models;
-using Plataforma24API.Auth;
+using Plataforma24API.Infrastructure.Security;
+using Plataforma24API.Services.Interfaces;
 
 namespace Plataforma24API.Controllers
 {
+    /// <summary>Datos personales de los usuarios. Cada usuario accede a los suyos; un administrador, a todos.</summary>
     [ApiController]
     [Route("datos")]
     [Authorize]
-
     public class DatosPersonalesController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly IDatosPersonalesService _service;
 
-        public DatosPersonalesController(AppDbContext context)
+        public DatosPersonalesController(IDatosPersonalesService service)
         {
-            _context = context;
+            _service = service;
         }
 
+        /// <summary>Devuelve los datos personales de un usuario.</summary>
+        /// <param name="idUsuario">Id del usuario.</param>
+        /// <response code="403">Los datos pertenecen a otro usuario.</response>
+        /// <response code="404">El usuario no cargo sus datos.</response>
+        // GET /datos/usuario/{idUsuario}
         [HttpGet("usuario/{idUsuario}")]
         public async Task<ActionResult<DatosPersonalesDTO>> ObtenerDatosUsuario(int idUsuario)
         {
-            if (!User.TienePermiso(idUsuario)) return Forbid();
-
-            var u = await _context.DatosPersonales.FirstOrDefaultAsync(d => d.IdUsuario == idUsuario);
-            if (u == null) return NotFound();
-
-            return Ok(MapearDTO(u));
+            return Ok(await _service.ObtenerPorUsuarioAsync(idUsuario));
         }
 
+        /// <summary>Lista los datos personales de los usuarios de un curso. Solo administradores.</summary>
+        /// <param name="idCurso">Id del curso.</param>
+        // GET /datos/alumnos/curso/{idCurso}
         [HttpGet("alumnos/curso/{idCurso}")]
+        [Authorize(Policy = Policies.Admin)]
         public async Task<ActionResult<IEnumerable<DatosPersonalesDTO>>> ObtenerDatosCurso(int idCurso)
         {
-            if (!User.EsAdmin()) return Forbid();
-
-            var lista = await (from u in _context.Usuarios
-                               join dp in _context.DatosPersonales on u.Id equals dp.IdUsuario
-                               where u.IdCurso == idCurso
-                               select dp).ToListAsync();
-
-            return Ok(lista.Select(dp => MapearDTO(dp)));
+            return Ok(await _service.ListarPorCursoAsync(idCurso));
         }
 
+        /// <summary>Carga los datos personales de un usuario.</summary>
+        /// <param name="dto">Datos personales; <c>IdUsuario</c> indica a quien pertenecen.</param>
+        /// <response code="201">Datos cargados.</response>
+        /// <response code="400">El usuario no existe, ya tiene datos o el DNI esta registrado.</response>
+        // POST /datos
         [HttpPost]
         public async Task<ActionResult<DatosPersonalesDTO>> CrearDatos([FromBody] DatosPersonalesDTO dto)
         {
-            if (!User.TienePermiso(dto.IdUsuario)) return Forbid();
-
-            var usuarioExiste = await _context.Usuarios.AnyAsync(u => u.Id == dto.IdUsuario);
-            if (!usuarioExiste) return BadRequest("El usuario especificado no existe.");
-
-            var existe = await _context.DatosPersonales.AnyAsync(d => d.IdUsuario == dto.IdUsuario);
-            if (existe) return BadRequest("Ya existen datos personales para este usuario.");
-
-            var dniRepetido = await _context.DatosPersonales.AnyAsync(d => d.DNI == dto.DNI);
-            if (dniRepetido) return BadRequest("Ya existe una persona registrada con ese DNI.");
-
-            var datos = new DatosPersonales
-            {
-                IdUsuario = dto.IdUsuario,
-                Nombre = dto.Nombre,
-                Apellido = dto.Apellido,
-                DNI = dto.DNI,
-                TelefonoCelular = dto.TelefonoCelular,
-                Direccion = dto.Direccion,
-                FechaNacimiento = dto.FechaNacimiento,
-                IdFotoArchivo = dto.IdFotoArchivo,
-                Sexo = dto.Sexo
-            };
-
-            _context.DatosPersonales.Add(datos);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction(nameof(ObtenerDatosUsuario), new { idUsuario = datos.IdUsuario }, dto);
+            var creado = await _service.CrearAsync(dto);
+            return CreatedAtAction(nameof(ObtenerDatosUsuario), new { idUsuario = creado.IdUsuario }, creado);
         }
 
+        /// <summary>Modifica los datos personales de un usuario.</summary>
+        /// <param name="idUsuario">Id del usuario.</param>
+        /// <param name="dto">Campos a modificar.</param>
+        // PATCH /datos/usuario/{idUsuario}
         [HttpPatch("usuario/{idUsuario}")]
         public async Task<IActionResult> ActualizarDatos(int idUsuario, [FromBody] ModificarDatosPersonalesDTO dto)
         {
-            if (!User.TienePermiso(idUsuario)) return Forbid();
-
-            var datos = await _context.DatosPersonales.FirstOrDefaultAsync(d => d.IdUsuario == idUsuario);
-            if (datos == null) return NotFound();
-
-            if (dto.Nombre != null) datos.Nombre = dto.Nombre;
-            if (dto.Apellido != null) datos.Apellido = dto.Apellido;
-            if (dto.DNI != null) datos.DNI = dto.DNI.Value;
-            if (dto.TelefonoCelular != null) datos.TelefonoCelular = dto.TelefonoCelular;
-            if (dto.Direccion != null) datos.Direccion = dto.Direccion;
-            if (dto.FechaNacimiento != default && dto.FechaNacimiento != null) datos.FechaNacimiento = (DateOnly)dto.FechaNacimiento;
-            if (dto.IdFotoArchivo.HasValue) datos.IdFotoArchivo = dto.IdFotoArchivo;
-            if (dto.Sexo.HasValue) datos.Sexo = dto.Sexo;
-
-            await _context.SaveChangesAsync();
+            await _service.ActualizarAsync(idUsuario, dto);
             return NoContent();
         }
 
+        /// <summary>Elimina los datos personales de un usuario. Solo administradores.</summary>
+        /// <param name="idUsuario">Id del usuario.</param>
+        // DELETE /datos/usuario/{idUsuario}
         [HttpDelete("usuario/{idUsuario}")]
+        [Authorize(Policy = Policies.Admin)]
         public async Task<IActionResult> EliminarDatos(int idUsuario)
         {
-            if (!User.EsAdmin()) return Forbid();
-
-            var datos = await _context.DatosPersonales.FirstOrDefaultAsync(d => d.IdUsuario == idUsuario);
-            if (datos == null) return NotFound();
-
-            _context.DatosPersonales.Remove(datos);
-            await _context.SaveChangesAsync();
+            await _service.EliminarAsync(idUsuario);
             return NoContent();
-        }
-
-        private static DatosPersonalesDTO MapearDTO(DatosPersonales u)
-        {
-            return new DatosPersonalesDTO
-            {
-                IdUsuario = u.IdUsuario,
-                Nombre = u.Nombre,
-                Apellido = u.Apellido,
-                DNI = u.DNI,
-                TelefonoCelular = u.TelefonoCelular,
-                Direccion = u.Direccion,
-                FechaNacimiento = u.FechaNacimiento,
-                IdFotoArchivo = u.IdFotoArchivo,
-                Sexo = u.Sexo
-            };
         }
     }
 }

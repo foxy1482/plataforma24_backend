@@ -1,9 +1,10 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Diagnostics.CodeAnalysis;
 
 namespace Plataforma24API.Models
 {
+    /// <summary>Archivo subido por un usuario. El contenido fisico vive en el almacenamiento; aqui solo sus metadatos.</summary>
     [Table("archivos")]
     public class Archivo
     {

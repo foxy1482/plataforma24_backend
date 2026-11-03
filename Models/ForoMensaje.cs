@@ -1,8 +1,9 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Plataforma24API.Models
 {
+    /// <summary>Mensaje publicado en un tema del foro. Se elimina de forma logica.</summary>
     [Table("foro_mensajes")]
     public class ForoMensaje
     {

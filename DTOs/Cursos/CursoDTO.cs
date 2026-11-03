@@ -1,11 +1,12 @@
-﻿using Plataforma24API.Models;
+using Plataforma24API.Models;
 using System.Text.Json.Serialization;
 
 namespace Plataforma24API.DTOs.Cursos
 {
+    /// <summary>Curso de la institucion. Al crear un curso, el campo <c>Id</c> se ignora: lo asigna la base de datos.</summary>
     public class CursoDTO
     {
-        public int Id { get; set; }   // solo de salida: al crear, el controller lo ignora
+        public int Id { get; set; }
 
         public Year Año { get; set; }
 

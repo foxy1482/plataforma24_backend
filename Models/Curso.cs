@@ -1,8 +1,9 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 namespace Plataforma24API.Models
 {
+    /// <summary>Curso (ano, division, turno y ciclo lectivo).</summary>
     [Table("cursos")]
     public class Curso
     {

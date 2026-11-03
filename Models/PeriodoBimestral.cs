@@ -1,8 +1,9 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Plataforma24API.Models
 {
+    /// <summary>Bimestre de un ciclo lectivo, con sus fechas de inicio y fin.</summary>
     [Table("periodos_bimestrales")]
     public class PeriodoBimestral
     {

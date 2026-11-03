@@ -1,125 +1,77 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Plataforma24API.Auth;
-using Plataforma24API.Data;
 using Plataforma24API.DTOs.Tareas;
-using Plataforma24API.Models;
+using Plataforma24API.Infrastructure.Security;
+using Plataforma24API.Services.Interfaces;
 
 namespace Plataforma24API.Controllers
 {
+    /// <summary>Consulta y administracion de tareas.</summary>
     [ApiController]
     [Route("tareas")]
     [Authorize]
     public class TareasController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly ITareaService _service;
 
-        public TareasController(AppDbContext context)
+        public TareasController(ITareaService service)
         {
-            _context = context;
+            _service = service;
         }
 
+        /// <summary>Lista las tareas, opcionalmente de una materia.</summary>
+        /// <param name="materia">Id de la materia.</param>
+        // GET /tareas?materia={idMateria}
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<TareaDTO>>> ListarTareas(
-            [FromQuery] int? materia)
+        public async Task<ActionResult<IEnumerable<TareaDTO>>> ListarTareas([FromQuery] int? materia)
         {
-            var cons = _context.Tareas.AsQueryable();
-
-            if (materia != null && materia != 0)
-            {
-                cons = cons.Where(t => t.IdMateria == materia);
-            }
-
-            var resultados = await cons.ToListAsync();
-
-            return Ok(resultados.Select(t => MapearDTO(t)));
+            return Ok(await _service.ListarAsync(materia));
         }
 
+        /// <summary>Devuelve una tarea.</summary>
+        /// <param name="id">Id de la tarea.</param>
+        /// <response code="404">La tarea no existe.</response>
+        // GET /tareas/{id}
         [HttpGet("{id}")]
         public async Task<ActionResult<TareaDTO>> BuscarTarea(int id)
         {
-            var t = await _context.Tareas.FindAsync(id);
-            if (t == null) return NotFound();
-
-            return Ok(MapearDTO(t));
+            return Ok(await _service.BuscarAsync(id));
         }
 
+        /// <summary>Publica una tarea. Administradores y profesores.</summary>
+        /// <param name="dto">Datos de la tarea.</param>
+        /// <response code="201">Tarea creada.</response>
+        /// <response code="400">La fecha de entrega es anterior a la de publicacion.</response>
+        // POST /tareas
         [HttpPost]
+        [Authorize(Policy = Policies.AdminOProfesor)]
         public async Task<ActionResult<TareaDTO>> CrearTarea([FromBody] CrearTareaDTO dto)
         {
-            if (!User.EsAdmin() && !User.EsProfe()) return Forbid();
-
-            if (dto.FechaEntrega < dto.PublicadaDesde)
-                return BadRequest("La fecha de entrega no puede ser anterior a la fecha de publicación.");
-
-            var datos = new Tarea
-            {
-                Titulo = dto.Titulo,
-                Descripcion = dto.Descripcion,
-                FechaEntrega = dto.FechaEntrega,
-                PublicadaDesde = dto.PublicadaDesde,
-                IdMateria = dto.IdMateria,
-            };
-
-            _context.Tareas.Add(datos);
-
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction(nameof(BuscarTarea), new { id = datos.Id }, dto);
-
+            var creada = await _service.CrearAsync(dto);
+            return CreatedAtAction(nameof(BuscarTarea), new { id = creada.Id }, creada);
         }
 
+        /// <summary>Modifica una tarea. Administradores y profesores.</summary>
+        /// <param name="id">Id de la tarea.</param>
+        /// <param name="dto">Campos a modificar.</param>
+        // PATCH /tareas/{id}
         [HttpPatch("{id}")]
+        [Authorize(Policy = Policies.AdminOProfesor)]
         public async Task<IActionResult> ActualizarTarea(int id, [FromBody] ModificarTareaDTO dto)
         {
-            if (!User.EsAdmin() && !User.EsProfe()) return Forbid();
-
-            var tarea = await _context.Tareas.FindAsync(id);
-            if (tarea == null) return NotFound($"No se encontró la tarea número {id}");
-
-            if (dto.Titulo != null) tarea.Titulo = dto.Titulo;
-            if (dto.Descripcion != null) tarea.Descripcion = dto.Descripcion;
-            if (dto.FechaEntrega.HasValue) tarea.FechaEntrega = dto.FechaEntrega.Value;
-
-            if (tarea.FechaEntrega < tarea.PublicadaDesde)
-                return BadRequest("La fecha de entrega no puede ser anterior a la fecha de publicación.");
-
-            await _context.SaveChangesAsync();
+            await _service.ActualizarAsync(id, dto);
             return NoContent();
         }
 
+        /// <summary>Elimina una tarea. Administradores y profesores.</summary>
+        /// <param name="id">Id de la tarea.</param>
+        // DELETE /tareas/{id}
         [HttpDelete("{id}")]
+        [Authorize(Policy = Policies.AdminOProfesor)]
         public async Task<IActionResult> EliminarTarea(int id)
         {
-            if (!User.EsAdmin() && !User.EsProfe()) return Forbid();
-
-            var tarea = await _context.Tareas.FindAsync(id);
-            if (tarea == null) return NotFound();
-
-            try
-            {
-                _context.Tareas.Remove(tarea);
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateException)
-            {
-                return BadRequest("No se pudo eliminar la tarea");
-            }
+            await _service.EliminarAsync(id);
             return NoContent();
-        }
-
-        private static TareaDTO MapearDTO(Tarea t)
-        {
-            return new TareaDTO
-            {
-                Id = t.Id,
-                Titulo = t.Titulo,
-                Descripcion = t.Descripcion,
-                FechaEntrega = t.FechaEntrega,
-                PublicadaDesde = t.PublicadaDesde,
-                IdMateria = t.IdMateria,
-            };
         }
     }
 }
