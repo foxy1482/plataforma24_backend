@@ -10,6 +10,7 @@ builder.Services.AddSwaggerDocumentation();
 builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddAppAuthorization();
 builder.Services.AddApplicationServices();
+builder.Services.AddGraphQLApi();
 
 var app = builder.Build();
 
@@ -26,5 +27,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapGraphQL("/graphql");
 
 app.Run();

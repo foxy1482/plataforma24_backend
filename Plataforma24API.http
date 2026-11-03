@@ -17,3 +17,30 @@ Authorization: Bearer {{token}}
 ### Cursos
 GET {{Plataforma24API_HostAddress}}/cursos
 Authorization: Bearer {{token}}
+
+### GraphQL: consulta de cursos y tareas
+POST {{Plataforma24API_HostAddress}}/graphql
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "query": "{ cursos { id anio division turno } tareas(idMateria: 1) { id titulo fechaEntrega } }"
+}
+
+### GraphQL: crear una tarea (administradores y profesores)
+POST {{Plataforma24API_HostAddress}}/graphql
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "query": "mutation($entrada: CrearTareaDTOInput!) { crearTarea(entrada: $entrada) { id titulo } }",
+  "variables": {
+    "entrada": {
+      "titulo": "Tarea de ejemplo",
+      "descripcion": "Descripcion",
+      "fechaEntrega": "2026-12-01T10:00:00Z",
+      "publicadaDesde": "2026-11-01T10:00:00Z",
+      "idMateria": 1
+    }
+  }
+}
