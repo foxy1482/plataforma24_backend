@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <PackageReference Include="BCrypt.Net-Next" Version="4.1.0" />
+    <PackageReference Include="DotNetEnv" Version="3.2.0" />
     <PackageReference Include="HotChocolate.AspNetCore" Version="16.7.3" />
     <PackageReference Include="HotChocolate.AspNetCore.Authorization" Version="16.7.3" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.5" />

@@ -12,8 +12,12 @@ namespace Plataforma24API.Extensions
         /// </summary>
         public static IServiceCollection AddDatabase(this IServiceCollection services, IConfiguration configuration)
         {
+            var conexion = configuration.GetConnectionString("DefaultConnection")
+                ?? throw new InvalidOperationException(
+                    "Falta ConnectionStrings__DefaultConnection. Copiá .env.example como .env y completalo.");
+
             services.AddDbContext<AppDbContext>(options =>
-                options.UseNpgsql(configuration.GetConnectionString("DefaultConnection"),
+                options.UseNpgsql(conexion,
                     o => o.MapEnum<Sexo>()
                           .MapEnum<Turno>("turno")
                           .MapEnum<Year>("years")

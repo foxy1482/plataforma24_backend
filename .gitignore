@@ -363,3 +363,6 @@ MigrationBackup/
 FodyWeavers.xsd
 # Archivos subidos en tiempo de ejecucion
 wwwroot/uploads/
+
+# Secretos locales
+.env

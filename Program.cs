@@ -1,6 +1,9 @@
 using Plataforma24API.Extensions;
 using Plataforma24API.Infrastructure.Serialization;
 
+// Carga .env antes de crear el builder para que sus variables entren en la configuracion.
+DotNetEnv.Env.TraversePath().Load();
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers()
