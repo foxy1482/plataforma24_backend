@@ -6,6 +6,7 @@ namespace Plataforma24API.Services.Interfaces
     public interface IAsistenciaService
     {
         /// <summary>Abre la planilla de un curso para una fecha, con una fila por alumno.</summary>
+        /// <exception cref="Common.Exceptions.BadRequestException">La fecha cae en sabado o domingo.</exception>
         /// <returns>Id de la planilla.</returns>
         Task<int> AbrirPlanillaAsync(AbrirAsistenciaDTO dto);
 

@@ -19,7 +19,7 @@ namespace Plataforma24API.Controllers
             _service = service;
         }
 
-        /// <summary>Lista las entregas de un alumno. Un alumno solo consulta las propias.</summary>
+        /// <summary>Lista las entregas de un alumno. El personal consulta las de cualquiera; un alumno, solo las propias.</summary>
         /// <param name="idUsuario">Id del alumno.</param>
         // GET /entregas/alumno/{idUsuario}
         [HttpGet("alumno/{idUsuario}")]
@@ -28,11 +28,11 @@ namespace Plataforma24API.Controllers
             return Ok(await _service.ListarPorAlumnoAsync(idUsuario));
         }
 
-        /// <summary>Lista las entregas de una tarea. Solo administradores.</summary>
+        /// <summary>Lista las entregas de una tarea. Solo personal.</summary>
         /// <param name="idTarea">Id de la tarea.</param>
         // GET /entregas/tarea/{idTarea}
         [HttpGet("tarea/{idTarea}")]
-        [Authorize(Policy = Policies.Admin)]
+        [Authorize(Policy = Policies.Personal)]
         public async Task<ActionResult<IEnumerable<EntregaRespuestaDTO>>> ListarPorTarea(int idTarea)
         {
             return Ok(await _service.ListarPorTareaAsync(idTarea));
@@ -60,7 +60,7 @@ namespace Plataforma24API.Controllers
             return CreatedAtAction(nameof(BuscarPorAlumno), new { idUsuario = creada.IdUsuario }, creada);
         }
 
-        /// <summary>Modifica una entrega. Solo un administrador puede asignar la calificacion.</summary>
+        /// <summary>Modifica una entrega. La calificacion la asignan solo profesores y administradores.</summary>
         /// <param name="id">Id de la entrega.</param>
         /// <param name="dto">Campos a modificar.</param>
         // PATCH /entregas/{id}

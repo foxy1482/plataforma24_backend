@@ -38,36 +38,36 @@ namespace Plataforma24API.Controllers
             return Ok(await _service.BuscarAsync(id));
         }
 
-        /// <summary>Publica un material. Solo administradores.</summary>
+        /// <summary>Publica un material. Administradores y profesores.</summary>
         /// <param name="dto">Datos del material.</param>
         /// <response code="201">Material creado.</response>
         // POST /materiales
         [HttpPost]
-        [Authorize(Policy = Policies.Admin)]
+        [Authorize(Policy = Policies.AdminOProfesor)]
         public async Task<ActionResult<MaterialDTO>> CrearMaterial([FromBody] CrearMaterialDTO dto)
         {
             var creado = await _service.CrearAsync(dto);
             return CreatedAtAction(nameof(BuscarMaterial), new { id = creado.Id }, creado);
         }
 
-        /// <summary>Modifica un material. Solo administradores.</summary>
+        /// <summary>Modifica un material. Administradores y profesores.</summary>
         /// <param name="id">Id del material.</param>
         /// <param name="dto">Campos a modificar.</param>
         // PATCH /materiales/{id}
         [HttpPatch("{id}")]
-        [Authorize(Policy = Policies.Admin)]
+        [Authorize(Policy = Policies.AdminOProfesor)]
         public async Task<IActionResult> ActualizarMaterial(int id, [FromBody] ModificarMaterialDTO dto)
         {
             await _service.ActualizarAsync(id, dto);
             return NoContent();
         }
 
-        /// <summary>Elimina un material. Solo administradores.</summary>
+        /// <summary>Elimina un material. Administradores y profesores.</summary>
         /// <param name="id">Id del material.</param>
         /// <response code="400">El material todavia tiene datos asociados.</response>
         // DELETE /materiales/{id}
         [HttpDelete("{id}")]
-        [Authorize(Policy = Policies.Admin)]
+        [Authorize(Policy = Policies.AdminOProfesor)]
         public async Task<IActionResult> EliminarMaterial(int id)
         {
             await _service.EliminarAsync(id);

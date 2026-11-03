@@ -18,8 +18,8 @@ namespace Plataforma24API.Services.Interfaces
         Task<ArchivoDTO> SubirAsync(ArchivoParaSubir archivo);
 
         /// <summary>
-        /// Abre el archivo para descargarlo. Pueden verlo su propietario, los administradores y los profesores
-        /// (estos ultimos solo si el propietario es alumno).
+        /// Abre el archivo para descargarlo. Pueden verlo su propietario, los administradores, los profesores
+        /// (si el propietario es alumno) y cualquier usuario si el archivo esta adjunto a una tarea o material.
         /// </summary>
         /// <exception cref="Common.Exceptions.NotFoundException">No existe el registro o el archivo fisico.</exception>
         /// <exception cref="Common.Exceptions.ForbiddenException">El usuario no tiene permiso para verlo.</exception>

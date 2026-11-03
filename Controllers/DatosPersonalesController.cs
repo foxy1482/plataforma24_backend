@@ -6,7 +6,7 @@ using Plataforma24API.Services.Interfaces;
 
 namespace Plataforma24API.Controllers
 {
-    /// <summary>Datos personales de los usuarios. Cada usuario accede a los suyos; un administrador, a todos.</summary>
+    /// <summary>Datos personales de los usuarios. Cada usuario accede a los suyos; el personal, a los de todos.</summary>
     [ApiController]
     [Route("datos")]
     [Authorize]
@@ -30,11 +30,11 @@ namespace Plataforma24API.Controllers
             return Ok(await _service.ObtenerPorUsuarioAsync(idUsuario));
         }
 
-        /// <summary>Lista los datos personales de los usuarios de un curso. Solo administradores.</summary>
+        /// <summary>Lista los datos personales de los usuarios de un curso. Solo personal.</summary>
         /// <param name="idCurso">Id del curso.</param>
         // GET /datos/alumnos/curso/{idCurso}
         [HttpGet("alumnos/curso/{idCurso}")]
-        [Authorize(Policy = Policies.Admin)]
+        [Authorize(Policy = Policies.Personal)]
         public async Task<ActionResult<IEnumerable<DatosPersonalesDTO>>> ObtenerDatosCurso(int idCurso)
         {
             return Ok(await _service.ListarPorCursoAsync(idCurso));

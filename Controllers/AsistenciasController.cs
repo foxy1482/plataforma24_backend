@@ -22,6 +22,7 @@ namespace Plataforma24API.Controllers
         /// <summary>Abre la planilla de un curso para una fecha. Administradores y preceptores.</summary>
         /// <param name="dto">Curso y fecha.</param>
         /// <response code="200">Id de la planilla abierta.</response>
+        /// <response code="400">La fecha es sabado o domingo.</response>
         // POST /asistencias/abrir
         [HttpPost("abrir")]
         [Authorize(Policy = Policies.AdminOPreceptor)]

@@ -13,6 +13,9 @@ namespace Plataforma24API.DTOs.Auth
 
         public int IdRol { get; set; }
 
+        /// <summary>Nombre del rol, para que el cliente no necesite consultar <c>/roles</c> (solo administradores).</summary>
+        public string? Rol { get; set; }
+
         public int? IdCurso { get; set; }
     }
 }

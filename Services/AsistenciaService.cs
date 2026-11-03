@@ -28,9 +28,12 @@ namespace Plataforma24API.Services
         }
 
         /// <inheritdoc />
-        public Task<int> AbrirPlanillaAsync(AbrirAsistenciaDTO dto)
+        public async Task<int> AbrirPlanillaAsync(AbrirAsistenciaDTO dto)
         {
-            return _asistencias.AbrirPlanillaAsync(dto.IdCurso, dto.Fecha, _currentUser.Id);
+            if (dto.Fecha.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
+                throw new BadRequestException("Solo se puede abrir asistencia de lunes a viernes.");
+
+            return await _asistencias.AbrirPlanillaAsync(dto.IdCurso, dto.Fecha, _currentUser.Id);
         }
 
         /// <inheritdoc />

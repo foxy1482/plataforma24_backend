@@ -20,7 +20,7 @@ namespace Plataforma24API.Mappers
             };
         }
 
-        public static AuthProfileDTO ToProfileDTO(this Usuario usuario)
+        public static AuthProfileDTO ToProfileDTO(this Usuario usuario, string? nombreRol)
         {
             return new AuthProfileDTO
             {
@@ -29,6 +29,7 @@ namespace Plataforma24API.Mappers
                 Nombre = usuario.NombreUsuario,
                 Email = usuario.Email,
                 IdRol = usuario.IdRol,
+                Rol = nombreRol,
                 IdCurso = usuario.IdCurso
             };
         }

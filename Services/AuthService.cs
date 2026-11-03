@@ -13,17 +13,20 @@ namespace Plataforma24API.Services
     public class AuthService : IAuthService
     {
         private readonly IUsuarioRepository _usuarios;
+        private readonly IRolRepository _roles;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IPasswordHasher _passwordHasher;
         private readonly IJwtService _jwtService;
 
         public AuthService(
             IUsuarioRepository usuarios,
+            IRolRepository roles,
             IUnitOfWork unitOfWork,
             IPasswordHasher passwordHasher,
             IJwtService jwtService)
         {
             _usuarios = usuarios;
+            _roles = roles;
             _unitOfWork = unitOfWork;
             _passwordHasher = passwordHasher;
             _jwtService = jwtService;
@@ -69,10 +72,14 @@ namespace Plataforma24API.Services
         /// <inheritdoc />
         public async Task<AuthProfileDTO> ObtenerPerfilAsync(int idUsuario)
         {
-            var usuario = await _usuarios.GetByIdAsync(idUsuario)
-                ?? throw new NotFoundException("Usuario no encontrado.");
+            var usuario = await _usuarios.GetByIdAsync(idUsuario);
 
-            return usuario.ToProfileDTO();
+            if (usuario == null || !usuario.Activo)
+                throw new UnauthorizedException("La sesión ya no es válida. Iniciá sesión de nuevo.");
+
+            var rol = await _roles.GetByIdAsync(usuario.IdRol);
+
+            return usuario.ToProfileDTO(rol?.Nombre);
         }
     }
 }

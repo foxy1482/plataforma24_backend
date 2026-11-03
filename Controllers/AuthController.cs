@@ -22,7 +22,7 @@ namespace Plataforma24API.Controllers
 
         /// <summary>Devuelve los datos de la cuenta del usuario autenticado.</summary>
         /// <response code="200">Perfil del usuario.</response>
-        /// <response code="401">Token ausente o invalido.</response>
+        /// <response code="401">Token ausente, invalido o de un usuario que ya no existe o esta inactivo.</response>
         // GET /auth/profile
         [Authorize]
         [HttpGet("profile")]

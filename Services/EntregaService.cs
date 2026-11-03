@@ -31,7 +31,7 @@ namespace Plataforma24API.Services
         /// <inheritdoc />
         public async Task<IEnumerable<EntregaRespuestaDTO>> ListarPorAlumnoAsync(int idUsuario)
         {
-            if (!_currentUser.TienePermiso(idUsuario)) throw new ForbiddenException();
+            if (!_currentUser.EsPersonal && !_currentUser.TienePermiso(idUsuario)) throw new ForbiddenException();
 
             var entregas = await _entregas.ListarPorAlumnoAsync(idUsuario);
             return entregas.Select(e => e.ToDTO());
@@ -47,7 +47,7 @@ namespace Plataforma24API.Services
         /// <inheritdoc />
         public async Task<IEnumerable<EntregaRespuestaDTO>> ListarPorMateriaYAlumnoAsync(int idMateria, int idUsuario)
         {
-            if (!_currentUser.TienePermiso(idUsuario)) throw new ForbiddenException();
+            if (!_currentUser.EsPersonal && !_currentUser.TienePermiso(idUsuario)) throw new ForbiddenException();
 
             var entregas = await _entregas.ListarPorMateriaYAlumnoAsync(idMateria, idUsuario);
             return entregas.Select(e => e.ToDTO());
@@ -83,13 +83,22 @@ namespace Plataforma24API.Services
             var entrega = await _entregas.GetByIdAsync(id)
                 ?? throw new NotFoundException($"No se encontró la entrega {id}.");
 
-            if (!_currentUser.TienePermiso(entrega.IdUsuario)) throw new ForbiddenException();
+            bool puedeCalificar = _currentUser.EsAdmin || _currentUser.EsProfesor;
 
             if (dto.FechaEntrega.HasValue)
-                entrega.FechaEntrega = dto.FechaEntrega.Value;
+            {
+                if (!_currentUser.TienePermiso(entrega.IdUsuario)) throw new ForbiddenException();
 
-            if (dto.Calificacion != null && _currentUser.EsAdmin)
+                entrega.FechaEntrega = dto.FechaEntrega.Value;
+            }
+
+            if (dto.Calificacion != null)
+            {
+                if (!puedeCalificar)
+                    throw new ForbiddenException("Solo los profesores y administradores pueden calificar.");
+
                 entrega.Calificacion = dto.Calificacion;
+            }
 
             await _unitOfWork.SaveChangesAsync();
         }

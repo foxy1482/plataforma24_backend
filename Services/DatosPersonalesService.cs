@@ -30,7 +30,7 @@ namespace Plataforma24API.Services
         /// <inheritdoc />
         public async Task<DatosPersonalesDTO> ObtenerPorUsuarioAsync(int idUsuario)
         {
-            if (!_currentUser.TienePermiso(idUsuario)) throw new ForbiddenException();
+            if (!_currentUser.EsPersonal && !_currentUser.TienePermiso(idUsuario)) throw new ForbiddenException();
 
             var datos = await _datos.GetByUsuarioIdAsync(idUsuario)
                 ?? throw new NotFoundException("El usuario no tiene datos personales cargados.");

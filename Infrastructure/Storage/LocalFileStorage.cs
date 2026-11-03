@@ -55,6 +55,12 @@ namespace Plataforma24API.Infrastructure.Storage
 
         private string ResolverRutaSegura(string rutaRelativa)
         {
+            foreach (var segmento in rutaRelativa.Split('/', '\\'))
+            {
+                if (segmento.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+                    throw new BadRequestException("La ruta del archivo contiene caracteres no válidos.");
+            }
+
             var completa = Path.GetFullPath(Path.Combine(_raiz, rutaRelativa));
 
             var comparacion = OperatingSystem.IsWindows()

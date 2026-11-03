@@ -98,7 +98,7 @@ namespace Plataforma24API.Services
             var propietario = await _usuarios.GetByIdAsync(archivo.IdUsuario)
                 ?? throw new NotFoundException("Propietario del archivo no encontrado.");
 
-            if (!PuedeAccederAlArchivo(archivo, propietario))
+            if (!await PuedeAccederAlArchivoAsync(archivo, propietario))
                 throw new ForbiddenException("No tenés permiso para ver este archivo.");
 
             if (!_storage.Existe(archivo.Ruta))
@@ -143,13 +143,15 @@ namespace Plataforma24API.Services
             }
         }
 
-        private bool PuedeAccederAlArchivo(Archivo archivo, Usuario propietario)
+        private async Task<bool> PuedeAccederAlArchivoAsync(Archivo archivo, Usuario propietario)
         {
             if (_currentUser.EsAdmin) return true;
 
             if (archivo.IdUsuario == _currentUser.Id) return true;
 
-            return _currentUser.EsProfesor && propietario.IdRol == RolIds.Alumno;
+            if (_currentUser.EsProfesor && propietario.IdRol == RolIds.Alumno) return true;
+
+            return await _archivos.EstaAdjuntoATareaOMaterialAsync(archivo.Id);
         }
 
         private static string NombreSeguro(string nombre)

@@ -28,23 +28,23 @@ namespace Plataforma24API.Controllers
             return Ok(await _service.ListarAsync(idMaterial));
         }
 
-        /// <summary>Asocia un archivo a un material. Solo administradores.</summary>
+        /// <summary>Asocia un archivo a un material. Administradores y profesores.</summary>
         /// <param name="dto">Material y archivo.</param>
         // POST /materiales/archivos
         [HttpPost]
-        [Authorize(Policy = Policies.Admin)]
+        [Authorize(Policy = Policies.AdminOProfesor)]
         public async Task<IActionResult> VincularArchivo([FromBody] VincMaterialArchivoDTO dto)
         {
             await _service.VincularAsync(dto);
             return NoContent();
         }
 
-        /// <summary>Quita un archivo de un material. Solo administradores.</summary>
+        /// <summary>Quita un archivo de un material. Administradores y profesores.</summary>
         /// <param name="idMaterial">Id del material.</param>
         /// <param name="idArchivo">Id del archivo.</param>
         // DELETE /materiales/archivos?idMaterial={id}&idArchivo={id}
         [HttpDelete]
-        [Authorize(Policy = Policies.Admin)]
+        [Authorize(Policy = Policies.AdminOProfesor)]
         public async Task<IActionResult> DesvincularArchivo([FromQuery] int idMaterial, [FromQuery] int idArchivo)
         {
             await _service.DesvincularAsync(idMaterial, idArchivo);

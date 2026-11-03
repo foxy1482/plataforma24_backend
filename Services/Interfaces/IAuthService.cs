@@ -12,7 +12,8 @@ namespace Plataforma24API.Services.Interfaces
         /// <exception cref="Common.Exceptions.BadRequestException">El email o el nombre de usuario ya estan en uso.</exception>
         Task<AuthResponseDTO> RegistroAsync(RegistroDTO dto);
 
-        /// <exception cref="Common.Exceptions.NotFoundException">El usuario no existe.</exception>
+        /// <summary>Devuelve el perfil incluido el nombre del rol.</summary>
+        /// <exception cref="Common.Exceptions.UnauthorizedException">El usuario fue eliminado o dado de baja: el token ya no sirve.</exception>
         Task<AuthProfileDTO> ObtenerPerfilAsync(int idUsuario);
     }
 }

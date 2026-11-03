@@ -67,7 +67,7 @@ namespace Plataforma24API.Infrastructure.Middleware
             return pg.SqlState switch
             {
                 PostgresErrorCodes.CheckViolation =>
-                    Crear(StatusCodes.Status400BadRequest, "Regla de negocio no cumplida", pg.MessageText),
+                    Crear(StatusCodes.Status400BadRequest, "Regla de negocio no cumplida", DetalleReglaNegocio(pg)),
 
                 PostgresErrorCodes.InsufficientPrivilege =>
                     Crear(StatusCodes.Status403Forbidden, "Acción no permitida", pg.MessageText),
@@ -95,6 +95,17 @@ namespace Plataforma24API.Infrastructure.Middleware
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Los triggers de la base lanzan mensajes pensados para el usuario y se muestran tal cual; en cambio, el texto
+        /// de una restriccion CHECK incluye nombres de tablas y restricciones que no deben exponerse.
+        /// </summary>
+        private static string DetalleReglaNegocio(PostgresException pg)
+        {
+            return pg.ConstraintName == null
+                ? pg.MessageText
+                : "Los datos no cumplen una regla de negocio. Revisá los valores enviados.";
         }
 
         private static ProblemDetails Crear(int status, string titulo, string detalle)

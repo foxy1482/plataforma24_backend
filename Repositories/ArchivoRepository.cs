@@ -27,5 +27,12 @@ namespace Plataforma24API.Repositories
 
             return await consulta.ToListAsync();
         }
+
+        /// <inheritdoc />
+        public async Task<bool> EstaAdjuntoATareaOMaterialAsync(int idArchivo)
+        {
+            return await Context.TareaArchivos.AnyAsync(t => t.IdArchivo == idArchivo)
+                || await Context.MaterialArchivos.AnyAsync(m => m.IdArchivo == idArchivo);
+        }
     }
 }

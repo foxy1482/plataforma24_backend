@@ -1,8 +1,10 @@
 using Plataforma24API.Extensions;
+using Plataforma24API.Infrastructure.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(opciones => opciones.JsonSerializerOptions.Converters.Add(new UtcDateTimeConverter()));
 builder.Services.AddDatabase(builder.Configuration);
 builder.Services.AddSwaggerDocumentation();
 builder.Services.AddJwtAuthentication(builder.Configuration);
