@@ -1,3 +1,4 @@
+using Plataforma24API.Common.Constants;
 using Plataforma24API.Common.Exceptions;
 using Plataforma24API.DTOs.Cursos;
 using Plataforma24API.Mappers;
@@ -16,6 +17,7 @@ namespace Plataforma24API.Services
         private const int LargoMaximoAula = 50;
         private const int PrimerCicloValido = 2000;
         private const int CiclosFuturosPermitidos = 2;
+        private const int MaximoAsignacionesPorVez = 200;
 
         private readonly ICursoRepository _cursos;
         private readonly IUsuarioRepository _usuarios;
@@ -122,6 +124,43 @@ namespace Plataforma24API.Services
 
             _cursos.Remove(curso);
             await _unitOfWork.SaveChangesAsync();
+        }
+
+        /// <inheritdoc />
+        public async Task<int> AsignarUsuariosAsync(int idCurso, IReadOnlyCollection<int> idUsuarios)
+        {
+            var ids = idUsuarios.Distinct().ToList();
+
+            if (ids.Count == 0)
+                throw new BadRequestException("Elegí al menos un alumno.");
+
+            if (ids.Count > MaximoAsignacionesPorVez)
+                throw new BadRequestException($"Se pueden asignar hasta {MaximoAsignacionesPorVez} alumnos por vez.");
+
+            if (await _cursos.GetByIdAsync(idCurso) == null)
+                throw new NotFoundException($"No se encontró el curso {idCurso}.");
+
+            // Se valida todo antes de tocar nada: la asignacion es de todo o nada.
+            var alumnos = new List<Usuario>();
+            foreach (var id in ids)
+            {
+                var usuario = await _usuarios.GetByIdAsync(id)
+                    ?? throw new BadRequestException($"El usuario {id} no existe.");
+
+                if (!RolIds.EsAlumno(usuario.IdRol))
+                    throw new BadRequestException($"{usuario.NombreUsuario} no es alumno: solo se asignan alumnos a un curso.");
+
+                if (usuario.IdCurso != null)
+                    throw new BadRequestException($"{usuario.NombreUsuario} ya tiene un curso asignado.");
+
+                alumnos.Add(usuario);
+            }
+
+            foreach (var alumno in alumnos) alumno.IdCurso = idCurso;
+
+            await _unitOfWork.SaveChangesAsync();
+
+            return alumnos.Count;
         }
 
         private static void ValidarValores(Year ano, Division division, Turno turno, int cicloLectivo)

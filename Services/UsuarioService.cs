@@ -57,13 +57,28 @@ namespace Plataforma24API.Services
         /// <inheritdoc />
         public async Task ActualizarAsync(int id, ModificarUsuarioDTO dto)
         {
-            if (!_currentUser.TienePermiso(id)) throw new ForbiddenException();
+            // El preceptor no administra cuentas, pero asigna alumnos a un curso: puede cambiar SOLO el curso.
+            var preceptorAsignaCurso = _currentUser.EsPreceptor
+                && dto.IdCurso.HasValue
+                && dto.IdRol == null
+                && dto.Email == null
+                && dto.NombreUsuario == null;
+
+            if (!_currentUser.TienePermiso(id) && !preceptorAsignaCurso) throw new ForbiddenException();
 
             var usuario = await _usuarios.GetByIdAsync(id)
                 ?? throw new NotFoundException($"No se encontró el usuario {id}.");
 
-            if (!_currentUser.EsAdmin && (dto.IdRol.HasValue || dto.IdCurso.HasValue || dto.Email != null))
+            if (!_currentUser.EsAdmin && (dto.IdRol.HasValue || dto.Email != null || (dto.IdCurso.HasValue && !_currentUser.EsPreceptor)))
                 throw new ForbiddenException("No tenés permisos para modificar el email, el rol o el curso.");
+
+            if (dto.IdCurso.HasValue)
+            {
+                if (await _cursos.GetByIdAsync(dto.IdCurso.Value) == null)
+                    throw new BadRequestException("El curso indicado no existe.");
+
+                usuario.IdCurso = dto.IdCurso.Value;
+            }
 
             if (dto.NombreUsuario != null)
             {
@@ -92,14 +107,6 @@ namespace Plataforma24API.Services
                     // El legajo no se toca acá: el trigger de la base lo renueva (nuevo prefijo, siguiente número libre)
                     // cuando el rol nuevo tiene otro prefijo, de forma atómica con este mismo UPDATE.
                     usuario.IdRol = dto.IdRol.Value;
-                }
-
-                if (dto.IdCurso.HasValue)
-                {
-                    if (await _cursos.GetByIdAsync(dto.IdCurso.Value) == null)
-                        throw new BadRequestException("El curso indicado no existe.");
-
-                    usuario.IdCurso = dto.IdCurso.Value;
                 }
 
                 if (dto.Email != null)

@@ -67,6 +67,20 @@ namespace Plataforma24API.Controllers
             return NoContent();
         }
 
+        /// <summary>Asigna varios alumnos sin curso a un curso. Preceptores y autoridades. Todo o nada.</summary>
+        /// <param name="id">Id del curso.</param>
+        /// <param name="dto">Ids de los alumnos.</param>
+        /// <response code="400">Lista vacia, usuario inexistente, que no es alumno o que ya tiene curso.</response>
+        /// <response code="404">El curso no existe.</response>
+        // POST /cursos/{id}/usuarios
+        [HttpPost("{id}/usuarios")]
+        [Authorize(Policy = Policies.AdminOPreceptor)]
+        public async Task<ActionResult<AsignacionCursoDTO>> AsignarUsuarios(int id, [FromBody] AsignarUsuariosDTO dto)
+        {
+            var asignados = await _service.AsignarUsuariosAsync(id, dto.IdUsuarios);
+            return Ok(new AsignacionCursoDTO { Asignados = asignados });
+        }
+
         /// <summary>Elimina un curso. Solo autoridades, y solo si no tiene alumnos ni materias asignados.</summary>
         /// <param name="id">Id del curso.</param>
         // DELETE /cursos/{id}
