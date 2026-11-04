@@ -64,9 +64,20 @@ namespace Plataforma24API.Services
         {
             int idUsuario = _currentUser.Id;
 
+            // Un alumno abre debates solo en su propio curso; los temas generales (sin curso) y los de
+            // otros cursos son del personal.
+            int? idCurso = dto.IdCurso;
+            if (!EsModerador)
+            {
+                int? miCurso = await ObtenerMiCursoAsync();
+                if (idCurso == null) idCurso = miCurso;
+                else if (idCurso != miCurso)
+                    throw new ForbiddenException("Solo podés abrir debates en tu propio curso.");
+            }
+
             var tema = new ForoTema
             {
-                IdCurso = dto.IdCurso,
+                IdCurso = idCurso,
                 IdAutor = idUsuario,
                 Titulo = dto.Titulo
             };
@@ -146,6 +157,13 @@ namespace Plataforma24API.Services
 
             if (tema.Cerrado)
                 throw new ConflictException("El tema está cerrado y no admite mensajes nuevos.");
+
+            if (dto.IdRespuestaA.HasValue)
+            {
+                var original = await _mensajes.GetByIdAsync(dto.IdRespuestaA.Value);
+                if (original == null || original.IdTema != idTema)
+                    throw new BadRequestException("El mensaje al que respondés no pertenece a este tema.");
+            }
 
             var mensaje = new ForoMensaje
             {
