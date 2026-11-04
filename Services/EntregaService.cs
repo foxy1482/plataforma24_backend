@@ -12,17 +12,20 @@ namespace Plataforma24API.Services
     public class EntregaService : IEntregaService
     {
         private readonly IEntregaRepository _entregas;
+        private readonly IEntregaArchivoRepository _vinculos;
         private readonly ITareaRepository _tareas;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ICurrentUser _currentUser;
 
         public EntregaService(
             IEntregaRepository entregas,
+            IEntregaArchivoRepository vinculos,
             ITareaRepository tareas,
             IUnitOfWork unitOfWork,
             ICurrentUser currentUser)
         {
             _entregas = entregas;
+            _vinculos = vinculos;
             _tareas = tareas;
             _unitOfWork = unitOfWork;
             _currentUser = currentUser;
@@ -110,6 +113,14 @@ namespace Plataforma24API.Services
                 ?? throw new NotFoundException($"No se encontró la entrega {id}.");
 
             if (!_currentUser.TienePermiso(entrega.IdUsuario)) throw new ForbiddenException();
+
+            // Un alumno puede "desentregar" mientras el docente no la haya calificado; despues la nota manda.
+            if (!_currentUser.EsAdmin && !string.IsNullOrWhiteSpace(entrega.Calificacion))
+                throw new BadRequestException("La entrega ya fue calificada: no se puede anular.");
+
+            // Los vinculos con archivos se borran en la misma operacion (los archivos subidos quedan en la cuenta del alumno).
+            var vinculos = await _vinculos.ListarVinculosAsync(id);
+            if (vinculos.Count > 0) _vinculos.RemoverVarios(vinculos);
 
             _entregas.Remove(entrega);
             await _unitOfWork.SaveChangesAsync();
