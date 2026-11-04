@@ -6,7 +6,10 @@ using Plataforma24API.Services.Interfaces;
 
 namespace Plataforma24API.Controllers
 {
-    /// <summary>Datos personales de los usuarios. Cada usuario accede a los suyos; el personal, a los de todos.</summary>
+    /// <summary>
+    /// Datos personales de los usuarios. Cada usuario accede a los suyos; el personal consulta los de todos;
+    /// los administradores y preceptores los cargan, modifican y eliminan.
+    /// </summary>
     [ApiController]
     [Route("datos")]
     [Authorize]
@@ -63,11 +66,11 @@ namespace Plataforma24API.Controllers
             return NoContent();
         }
 
-        /// <summary>Elimina los datos personales de un usuario. Solo administradores.</summary>
+        /// <summary>Elimina los datos personales de un usuario. Solo administradores y preceptores.</summary>
         /// <param name="idUsuario">Id del usuario.</param>
         // DELETE /datos/usuario/{idUsuario}
         [HttpDelete("usuario/{idUsuario}")]
-        [Authorize(Policy = Policies.Admin)]
+        [Authorize(Policy = Policies.AdminOPreceptor)]
         public async Task<IActionResult> EliminarDatos(int idUsuario)
         {
             await _service.EliminarAsync(idUsuario);

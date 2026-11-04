@@ -29,6 +29,12 @@ namespace Plataforma24API.Repositories
         }
 
         /// <inheritdoc />
+        public Task<bool> ExistePorDniDeOtroAsync(long dni, int idUsuario)
+        {
+            return DbSet.AnyAsync(d => d.DNI == dni && d.IdUsuario != idUsuario);
+        }
+
+        /// <inheritdoc />
         public async Task<List<DatosPersonales>> ListarPorCursoAsync(int idCurso)
         {
             return await (from u in Context.Usuarios.AsNoTracking()

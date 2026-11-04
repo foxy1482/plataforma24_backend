@@ -11,6 +11,9 @@ namespace Plataforma24API.Repositories.Interfaces
 
         Task<bool> ExistePorDniAsync(long dni);
 
+        /// <summary>Indica si el DNI pertenece a los datos personales de un usuario distinto de <paramref name="idUsuario"/>.</summary>
+        Task<bool> ExistePorDniDeOtroAsync(long dni, int idUsuario);
+
         /// <summary>Lista los datos personales de los usuarios asignados a un curso.</summary>
         Task<List<DatosPersonales>> ListarPorCursoAsync(int idCurso);
     }
