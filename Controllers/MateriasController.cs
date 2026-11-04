@@ -41,36 +41,37 @@ namespace Plataforma24API.Controllers
             return Ok(await _service.BuscarAsync(id));
         }
 
-        /// <summary>Crea una materia. Solo administradores.</summary>
+        /// <summary>Crea una materia. El profesor queda a cargo de las que crea y elige el curso; el administrador asigna el profesor.</summary>
         /// <param name="dto">Datos de la materia.</param>
         /// <response code="201">Materia creada.</response>
-        /// <response code="400">El curso ya tiene una materia con ese nombre.</response>
+        /// <response code="400">Datos invalidos o el curso ya tiene una materia con ese nombre.</response>
+        /// <response code="403">Solo profesores y administradores crean materias.</response>
         // POST /materias
         [HttpPost]
-        [Authorize(Policy = Policies.Admin)]
+        [Authorize(Policy = Policies.AdminOProfesor)]
         public async Task<ActionResult<MateriaDTO>> CrearMateria([FromBody] MateriaDTO dto)
         {
             var creada = await _service.CrearAsync(dto);
             return CreatedAtAction(nameof(BuscarMateria), new { id = creada.Id }, creada);
         }
 
-        /// <summary>Modifica una materia. Solo administradores.</summary>
+        /// <summary>Modifica una materia. El profesor, solo las suyas; el administrador, cualquiera.</summary>
         /// <param name="id">Id de la materia.</param>
         /// <param name="dto">Campos a modificar.</param>
         // PATCH /materias/{id}
         [HttpPatch("{id}")]
-        [Authorize(Policy = Policies.Admin)]
+        [Authorize(Policy = Policies.AdminOProfesor)]
         public async Task<IActionResult> ActualizarMateria(int id, [FromBody] ModificarMateriaDTO dto)
         {
             await _service.ActualizarAsync(id, dto);
             return NoContent();
         }
 
-        /// <summary>Elimina una materia. Solo administradores.</summary>
+        /// <summary>Elimina una materia. El profesor, solo las suyas; el administrador, cualquiera.</summary>
         /// <param name="id">Id de la materia.</param>
         // DELETE /materias/{id}
         [HttpDelete("{id}")]
-        [Authorize(Policy = Policies.Admin)]
+        [Authorize(Policy = Policies.AdminOProfesor)]
         public async Task<IActionResult> EliminarMateria(int id)
         {
             await _service.EliminarAsync(id);
