@@ -17,10 +17,10 @@ namespace Plataforma24API.Models
         [Column("descripcion")]
         public string Descripcion { get; set; } = null!;
 
-        [Column("fecha_entrega")]
+        [Column("fecha_entrega", TypeName = "timestamp without time zone")]
         public DateTime FechaEntrega { get; set; }
 
-        [Column("publicada_desde")]
+        [Column("publicada_desde", TypeName = "timestamp without time zone")]
         public DateTime PublicadaDesde { get; set; }
 
         [Column("id_materia")]

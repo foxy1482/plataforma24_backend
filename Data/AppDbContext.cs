@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Plataforma24API.Models;
 
 namespace Plataforma24API.Data
@@ -87,6 +88,17 @@ namespace Plataforma24API.Data
             modelBuilder.Entity<ForoTema>().Property(t => t.FechaCreacion).HasDefaultValueSql("LOCALTIMESTAMP");
             modelBuilder.Entity<ForoMensaje>().Property(m => m.FechaPublicacion).HasDefaultValueSql("LOCALTIMESTAMP");
             modelBuilder.Entity<ForoReporte>().Property(r => r.Fecha).HasDefaultValueSql("LOCALTIMESTAMP");
+
+            var aUtcSinZona = new ValueConverter<DateTime, DateTime>(
+                v => DateTime.SpecifyKind(v.Kind == DateTimeKind.Local ? v.ToUniversalTime() : v, DateTimeKind.Unspecified),
+                v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
+
+            modelBuilder.Entity<Tarea>(e =>
+            {
+                e.Property(t => t.FechaEntrega).HasConversion(aUtcSinZona);
+                e.Property(t => t.PublicadaDesde).HasConversion(aUtcSinZona);
+            });
+            modelBuilder.Entity<Material>().Property(m => m.PublicadaDesde).HasConversion(aUtcSinZona);
 
             modelBuilder.Entity<VBoletinResumen>().HasNoKey().ToView("v_boletin_resumen");
             modelBuilder.Entity<VBoletinDetalle>().HasNoKey().ToView("v_boletin_detalle");
