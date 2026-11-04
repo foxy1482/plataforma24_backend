@@ -42,32 +42,32 @@ namespace Plataforma24API.Controllers
             return Ok(await _service.BuscarAsync(id));
         }
 
-        /// <summary>Crea un curso. Solo administradores.</summary>
+        /// <summary>Crea un curso. Preceptores y autoridades.</summary>
         /// <param name="dto">Datos del curso.</param>
         /// <response code="201">Curso creado.</response>
         /// <response code="400">Ya existe un curso con esa combinacion.</response>
         // POST /cursos
         [HttpPost]
-        [Authorize(Policy = Policies.Admin)]
+        [Authorize(Policy = Policies.AdminOPreceptor)]
         public async Task<ActionResult<CursoDTO>> CrearCurso([FromBody] CursoDTO dto)
         {
             var creado = await _service.CrearAsync(dto);
             return CreatedAtAction(nameof(BuscarCurso), new { id = creado.Id }, creado);
         }
 
-        /// <summary>Modifica un curso. Solo administradores.</summary>
+        /// <summary>Modifica un curso. Preceptores y autoridades.</summary>
         /// <param name="id">Id del curso.</param>
         /// <param name="dto">Campos a modificar.</param>
         // PATCH /cursos/{id}
         [HttpPatch("{id}")]
-        [Authorize(Policy = Policies.Admin)]
+        [Authorize(Policy = Policies.AdminOPreceptor)]
         public async Task<IActionResult> ActualizarCurso(int id, [FromBody] ModificarCursoDTO dto)
         {
             await _service.ActualizarAsync(id, dto);
             return NoContent();
         }
 
-        /// <summary>Elimina un curso. Solo administradores.</summary>
+        /// <summary>Elimina un curso. Solo autoridades, y solo si no tiene alumnos ni materias asignados.</summary>
         /// <param name="id">Id del curso.</param>
         // DELETE /cursos/{id}
         [HttpDelete("{id}")]
