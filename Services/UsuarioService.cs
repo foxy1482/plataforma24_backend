@@ -89,6 +89,8 @@ namespace Plataforma24API.Services
                     if (await _roles.GetByIdAsync(dto.IdRol.Value) == null)
                         throw new BadRequestException("El rol indicado no existe.");
 
+                    // El legajo no se toca acá: el trigger de la base lo renueva (nuevo prefijo, siguiente número libre)
+                    // cuando el rol nuevo tiene otro prefijo, de forma atómica con este mismo UPDATE.
                     usuario.IdRol = dto.IdRol.Value;
                 }
 

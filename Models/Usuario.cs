@@ -3,7 +3,11 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Plataforma24API.Models
 {
-    /// <summary>Cuenta de acceso. El legajo lo genera la base de datos.</summary>
+    /// <summary>
+    /// Cuenta de acceso. El legajo lo genera la base de datos (trigger <c>trg_usuarios_legajo</c>): al crear el
+    /// usuario y también al cambiar su rol a uno con otro prefijo.
+    /// La aplicación nunca lo escribe; EF lo ignora al guardar.
+    /// </summary>
     [Table("usuarios")]
     public class Usuario
     {
