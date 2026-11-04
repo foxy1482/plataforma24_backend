@@ -14,6 +14,8 @@ builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddAppAuthorization();
 builder.Services.AddApplicationServices();
 builder.Services.AddGraphQLApi();
+builder.Services.AddCors(opciones => opciones.AddDefaultPolicy(politica =>
+    politica.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader()));
 
 var app = builder.Build();
 
@@ -26,6 +28,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 
