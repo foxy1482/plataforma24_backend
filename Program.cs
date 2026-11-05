@@ -12,6 +12,7 @@ builder.Services.AddDatabase(builder.Configuration);
 builder.Services.AddSwaggerDocumentation();
 builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddAppAuthorization();
+builder.Services.AddApiRateLimiting(builder.Configuration);
 builder.Services.AddApplicationServices();
 builder.Services.AddGraphQLApi();
 builder.Services.AddCors(opciones => opciones.AddDefaultPolicy(politica =>
@@ -30,6 +31,7 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseCors();
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapControllers();
