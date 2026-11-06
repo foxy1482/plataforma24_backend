@@ -19,9 +19,14 @@ namespace Plataforma24API.Controllers
             _service = service;
         }
 
-        /// <summary>Lista todos los usuarios.</summary>
+        /// <summary>
+        /// Lista todos los usuarios, con email y legajo. Solo administradores y preceptores: el registro es
+        /// publico y el legajo sirve para crear una contrasena blanqueada.
+        /// </summary>
+        /// <response code="403">El usuario no es administrador ni preceptor.</response>
         // GET /usuarios
         [HttpGet]
+        [Authorize(Policy = Policies.AdminOPreceptor)]
         public async Task<ActionResult<IEnumerable<UsuarioDTO>>> ListarUsuarios()
         {
             return Ok(await _service.ListarAsync());
