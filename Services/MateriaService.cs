@@ -58,19 +58,22 @@ namespace Plataforma24API.Services
         {
             var nombre = NormalizarNombre(dto.Nombre);
 
-            // El profesor siempre queda a cargo de lo que crea; solo un administrador asigna a otro.
+            // El docente queda a cargo de lo que crea; solo un administrador asigna a otro. Un docente
+            // con permisos administrativos (AdminProfesor) que no elige profesor se la asigna a sí mismo.
+            var esDocente = _currentUser.EsProfesor || _currentUser.IdRol == RolIds.AdminProfesor;
             int idProfesor;
-            if (_currentUser.EsAdmin)
+            if (_currentUser.EsAdmin && dto.IdProfesor.HasValue && dto.IdProfesor != _currentUser.Id)
             {
-                if (!dto.IdProfesor.HasValue)
-                    throw new BadRequestException("Elegí el profesor a cargo de la materia.");
-
                 await ValidarProfesorAsync(dto.IdProfesor.Value);
                 idProfesor = dto.IdProfesor.Value;
             }
-            else if (_currentUser.EsProfesor)
+            else if (esDocente)
             {
                 idProfesor = _currentUser.Id;
+            }
+            else if (_currentUser.EsAdmin)
+            {
+                throw new BadRequestException("Elegí el profesor a cargo de la materia.");
             }
             else
             {
