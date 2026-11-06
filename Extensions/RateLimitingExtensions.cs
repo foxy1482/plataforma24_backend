@@ -22,7 +22,8 @@ namespace Plataforma24API.Extensions
                 .Bind(config.GetSection(RateLimitSettings.SectionName))
                 .Validate(settings => settings.EsValida(),
                     "La configuración RateLimiting es inválida: PeticionesPorMinuto debe ser positivo, " +
-                    "Rafaga no puede ser menor que PeticionesPorMinuto y Cola no puede ser negativa.")
+                    "Rafaga no puede ser menor que PeticionesPorMinuto, Cola no puede ser negativa e " +
+                    "IntentosPorCuentaPorMinuto debe ser positivo.")
                 .ValidateOnStart();
 
             services.AddRateLimiter(_ => { });

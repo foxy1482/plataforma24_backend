@@ -33,6 +33,18 @@ namespace Plataforma24API.Common.Exceptions
         public ConflictException(string mensaje) : base(mensaje) { }
     }
 
+    /// <summary>Se superó el límite de intentos. Se traduce a HTTP 429 con <c>Retry-After</c>.</summary>
+    public class TooManyRequestsException : AppException
+    {
+        public int SegundosParaReintentar { get; }
+
+        public TooManyRequestsException(int segundosParaReintentar)
+            : base($"Demasiados intentos con esta cuenta. Reintentá en {segundosParaReintentar} segundo(s).")
+        {
+            SegundosParaReintentar = segundosParaReintentar;
+        }
+    }
+
     /// <summary>Faltan credenciales validas. Se traduce a HTTP 401.</summary>
     public class UnauthorizedException : AppException
     {

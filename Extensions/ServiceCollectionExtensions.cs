@@ -1,6 +1,7 @@
 using Plataforma24API.Common.Interfaces;
 using Plataforma24API.Data;
 using Plataforma24API.Infrastructure.Middleware;
+using Plataforma24API.Infrastructure.RateLimiting;
 using Plataforma24API.Infrastructure.Security;
 using Plataforma24API.Infrastructure.Storage;
 using Plataforma24API.Repositories;
@@ -34,6 +35,9 @@ namespace Plataforma24API.Extensions
             services.AddScoped<IJwtService, JwtService>();
 
             services.AddSingleton<IFileStorage, LocalFileStorage>();
+
+            services.AddMemoryCache();
+            services.AddSingleton<ILimiteIntentos, LimiteIntentosPorCuenta>();
 
             services.AddExceptionHandler<GlobalExceptionHandler>();
             services.AddProblemDetails();

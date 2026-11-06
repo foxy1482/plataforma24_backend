@@ -40,6 +40,9 @@ namespace Plataforma24API.Infrastructure.Middleware
                 _logger.LogInformation("{Tipo}: {Mensaje}", exception.GetType().Name, exception.Message);
             }
 
+            if (exception is TooManyRequestsException limite)
+                httpContext.Response.Headers.RetryAfter = limite.SegundosParaReintentar.ToString();
+
             httpContext.Response.StatusCode = problema.Status ?? StatusCodes.Status500InternalServerError;
             await httpContext.Response.WriteAsJsonAsync(problema, cancellationToken);
 
@@ -57,6 +60,7 @@ namespace Plataforma24API.Infrastructure.Middleware
                     ForbiddenException => Crear(StatusCodes.Status403Forbidden, "Acción no permitida", app.Message),
                     ConflictException => Crear(StatusCodes.Status409Conflict, "Conflicto", app.Message),
                     UnauthorizedException => Crear(StatusCodes.Status401Unauthorized, "No autenticado", app.Message),
+                    TooManyRequestsException => Crear(StatusCodes.Status429TooManyRequests, "Demasiados intentos", app.Message),
                     _ => Crear(StatusCodes.Status400BadRequest, "Pedido inválido", app.Message)
                 };
             }

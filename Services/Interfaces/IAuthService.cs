@@ -6,6 +6,7 @@ namespace Plataforma24API.Services.Interfaces
     public interface IAuthService
     {
         /// <exception cref="Common.Exceptions.UnauthorizedException">Credenciales incorrectas o usuario inactivo.</exception>
+        /// <exception cref="Common.Exceptions.TooManyRequestsException">Más intentos por minuto que los permitidos para ese email.</exception>
         Task<AuthResponseDTO> LoginAsync(LoginDTO dto);
 
         /// <summary>Crea una cuenta con rol de alumno y devuelve su token.</summary>

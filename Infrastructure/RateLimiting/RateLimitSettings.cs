@@ -17,7 +17,13 @@ namespace Plataforma24API.Infrastructure.RateLimiting
         /// </summary>
         public LimiteSettings Anonimo { get; init; } = new() { PeticionesPorMinuto = 300, Rafaga = 600, Cola = 0 };
 
-        public bool EsValida() => Autenticado.EsValido() && Anonimo.EsValido();
+        /// <summary>
+        /// Intentos por minuto y por email en login y creación de contraseña. Complementa al límite por IP, que
+        /// tiene que ser alto porque el colegio comparte una IP pública.
+        /// </summary>
+        public int IntentosPorCuentaPorMinuto { get; init; } = 8;
+
+        public bool EsValida() => Autenticado.EsValido() && Anonimo.EsValido() && IntentosPorCuentaPorMinuto > 0;
     }
 
     /// <summary>

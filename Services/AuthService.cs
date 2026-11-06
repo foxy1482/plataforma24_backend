@@ -17,24 +17,30 @@ namespace Plataforma24API.Services
         private readonly IUnitOfWork _unitOfWork;
         private readonly IPasswordHasher _passwordHasher;
         private readonly IJwtService _jwtService;
+        private readonly ILimiteIntentos _limiteIntentos;
 
         public AuthService(
             IUsuarioRepository usuarios,
             IRolRepository roles,
             IUnitOfWork unitOfWork,
             IPasswordHasher passwordHasher,
-            IJwtService jwtService)
+            IJwtService jwtService,
+            ILimiteIntentos limiteIntentos)
         {
             _usuarios = usuarios;
             _roles = roles;
             _unitOfWork = unitOfWork;
             _passwordHasher = passwordHasher;
             _jwtService = jwtService;
+            _limiteIntentos = limiteIntentos;
         }
 
         /// <inheritdoc />
         public async Task<AuthResponseDTO> LoginAsync(LoginDTO dto)
         {
+            // Se cuenta antes de ir a la base: un barrido de contraseñas se corta sin consultas ni BCrypt.
+            _limiteIntentos.Registrar("login:" + dto.Email);
+
             var usuario = await _usuarios.GetByEmailAsync(dto.Email);
 
             // BCrypt no acepta un hash vacío: la cuenta blanqueada se informa antes de verificar.
@@ -72,6 +78,9 @@ namespace Plataforma24API.Services
         /// <inheritdoc />
         public async Task<AuthResponseDTO> CrearPasswordAsync(CrearPasswordDTO dto)
         {
+            // Los legajos son correlativos: sin límite se podrían probar todos contra una cuenta blanqueada.
+            _limiteIntentos.Registrar("crear-password:" + dto.Email);
+
             var usuario = await _usuarios.GetByEmailAsync(dto.Email.Trim());
 
             // Mensaje único: no revela si el email existe, si el legajo coincide o si la cuenta está blanqueada.
