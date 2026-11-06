@@ -35,6 +35,7 @@ namespace Plataforma24API.Controllers
         /// <param name="dto">Email y contrasena.</param>
         /// <response code="200">Token de acceso.</response>
         /// <response code="401">Credenciales incorrectas o usuario inactivo.</response>
+        /// <response code="409">La contrasena fue blanqueada: hay que crear una nueva con <c>POST /auth/crear-password</c>.</response>
         // POST /auth/login
         [HttpPost("login")]
         public async Task<ActionResult<AuthResponseDTO>> Login([FromBody] LoginDTO dto)
@@ -51,6 +52,30 @@ namespace Plataforma24API.Controllers
         public async Task<ActionResult<AuthResponseDTO>> Registro([FromBody] RegistroDTO dto)
         {
             return Ok(await _authService.RegistroAsync(dto));
+        }
+
+        /// <summary>Cambia la contrasena del usuario autenticado.</summary>
+        /// <param name="dto">Contrasena actual y nueva.</param>
+        /// <response code="204">Contrasena cambiada.</response>
+        /// <response code="400">La contrasena actual no es correcta o la nueva no es valida.</response>
+        // POST /auth/cambiar-password
+        [Authorize]
+        [HttpPost("cambiar-password")]
+        public async Task<IActionResult> CambiarPassword([FromBody] CambiarPasswordDTO dto)
+        {
+            await _authService.CambiarPasswordAsync(_currentUser.Id, dto);
+            return NoContent();
+        }
+
+        /// <summary>Crea una contrasena nueva para una cuenta blanqueada por un administrador y devuelve su token.</summary>
+        /// <param name="dto">Email, numero de legajo y contrasena nueva.</param>
+        /// <response code="200">Token de acceso.</response>
+        /// <response code="400">Los datos no coinciden con una cuenta con la contrasena blanqueada.</response>
+        // POST /auth/crear-password
+        [HttpPost("crear-password")]
+        public async Task<ActionResult<AuthResponseDTO>> CrearPassword([FromBody] CrearPasswordDTO dto)
+        {
+            return Ok(await _authService.CrearPasswordAsync(dto));
         }
     }
 }

@@ -1,3 +1,4 @@
+using Plataforma24API.Common.Constants;
 using Plataforma24API.Common.Exceptions;
 using Plataforma24API.Common.Interfaces;
 using Plataforma24API.DTOs.Usuarios;
@@ -123,6 +124,24 @@ namespace Plataforma24API.Services
                 }
             }
 
+            await _unitOfWork.SaveChangesAsync();
+        }
+
+        /// <inheritdoc />
+        public async Task BlanquearPasswordAsync(int id)
+        {
+            if (id == _currentUser.Id)
+                throw new BadRequestException("No podés blanquear tu propia contraseña: cambiala desde tu perfil.");
+
+            var usuario = await _usuarios.GetByIdAsync(id)
+                ?? throw new NotFoundException($"No se encontró el usuario {id}.");
+
+            // Quien blanquea conoce el email y el legajo de la cuenta: si una Autoridad pudiera blanquear a un
+            // administrador, podría tomar su cuenta. Las cuentas administrativas solo las blanquea el Admin.
+            if (RolIds.EsAdmin(usuario.IdRol) && _currentUser.IdRol != RolIds.Admin)
+                throw new ForbiddenException("Solo el administrador general puede blanquear la contraseña de una cuenta administrativa.");
+
+            usuario.PasswordHash = string.Empty;
             await _unitOfWork.SaveChangesAsync();
         }
 

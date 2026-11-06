@@ -58,6 +58,23 @@ namespace Plataforma24API.Controllers
             return NoContent();
         }
 
+        /// <summary>
+        /// Blanquea la contrasena de un usuario (olvido, sin envio de mail): en su proximo ingreso crea una nueva
+        /// con su email y su numero de legajo. Solo administradores.
+        /// </summary>
+        /// <param name="idUsuario">Id del usuario.</param>
+        /// <response code="204">Contrasena blanqueada.</response>
+        /// <response code="400">Es la propia cuenta.</response>
+        /// <response code="403">La cuenta es administrativa y quien blanquea no es el Admin general.</response>
+        // POST /usuarios/{idUsuario}/blanquear-password
+        [HttpPost("{idUsuario}/blanquear-password")]
+        [Authorize(Policy = Policies.Admin)]
+        public async Task<IActionResult> BlanquearPassword(int idUsuario)
+        {
+            await _service.BlanquearPasswordAsync(idUsuario);
+            return NoContent();
+        }
+
         /// <summary>Elimina un usuario. Solo administradores.</summary>
         /// <param name="idUsuario">Id del usuario.</param>
         // DELETE /usuarios/{idUsuario}

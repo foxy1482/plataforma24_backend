@@ -30,5 +30,12 @@ namespace Plataforma24API.Models
         public bool Activo { get; set; } = true;
         [Column("fecha_alta")]
         public DateTime FechaAlta { get; set; }
+
+        /// <summary>
+        /// Un administrador borró la contraseña (hash vacío): no se puede iniciar sesión hasta que el usuario cree
+        /// una nueva con su email y su legajo.
+        /// </summary>
+        [NotMapped]
+        public bool PasswordBlanqueada => PasswordHash.Length == 0;
     }
 }
